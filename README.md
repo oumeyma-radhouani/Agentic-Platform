@@ -9,7 +9,6 @@ Le système est conçu pour automatiser l'analyse linguistique des comptes-rendu
 La solution repose sur une architecture modulaire open-source:
 * **LlamaIndex :** Extraction et analyse sémantique des comptes-rendus non structurés.
 * **LangChain :** Intégration et connecteurs vers les APIs du SI.
-* **LangGraph :** Orchestration du workflow décisionnel et gestion de la mémoire des agents.
 
 ## Équipe
 * Oumeyma Radhouani
