@@ -1,4 +1,4 @@
-# ☁️ CloudShift : Plateforme Agentique d'Analyse de la Satisfaction Client
+# ☁️ NOVA : Plateforme Agentique d'Analyse de la Satisfaction Client
 
 Ce dépôt contient le code source de la Plateforme Agentique d'Analyse de la Satisfaction Client et d'Aide à la Décision. 
 
