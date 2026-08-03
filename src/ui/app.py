@@ -121,8 +121,8 @@ with status_col3:
 
 st.divider()
 
-# --- TABS FOR UI SEPARATION ---
-tab_console, tab_batch = st.tabs(["💬 Live Console", "🗃️ Batch Analysis Pipeline"])
+# --- TABS FOR UI SEPARATION (Added Tab 3) ---
+tab_console, tab_batch, tab_audio = st.tabs(["💬 Live Console", "🗃️ Batch Analysis Pipeline", "🎙️ Audio Processing"])
 
 # --- TAB 1: ORIGINAL CHAT INTERFACE ---
 with tab_console:
@@ -229,3 +229,46 @@ with tab_batch:
                             
         except Exception as e:
             st.error(f"Failed to parse uploaded file. Ensure it is valid JSON/JSONL. Error: {e}")
+
+# --- TAB 3: AUDIO PROCESSING PIPELINE ---
+with tab_audio:
+    st.subheader("Speech-to-Text Pipeline")
+    st.markdown("Upload a customer call or audio feedback to transcribe and analyze.")
+    
+    audio_file = st.file_uploader("Upload Audio", type=["wav", "mp3", "m4a"])
+    
+    if audio_file is not None:
+        # Show an audio player so the user can hear the file they just uploaded
+        st.audio(audio_file)
+        
+        if st.button("🎙️ Transcribe Audio", type="primary"):
+            with st.spinner("Transcribing audio via local Whisper model (this may take a moment)..."):
+                # We save the uploaded file temporarily so Whisper can read it from the disk
+                temp_audio_path = "temp_audio_upload.wav"
+                with open(temp_audio_path, "wb") as f:
+                    f.write(audio_file.getbuffer())
+                
+                try:
+                    # Import our new backend script
+                    from src.backend.audio import transcribe_audio
+                    transcript = transcribe_audio(temp_audio_path)
+                    
+                    st.success("Transcription Complete!")
+                    st.markdown("### Raw Transcript")
+                    st.info(transcript)
+                    
+                    # --- AI AGENT ANALYSIS INTEGRATION ---
+                    st.divider()
+                    st.markdown("### 🧠 AI Agent Analysis")
+                    with st.spinner("Analyzing transcript context and sentiment..."):
+                        if is_ollama_online and selected_model:
+                            # Feed the raw transcript directly into the agent
+                            raw_response = mock_langchain_response(f"Analyze this customer feedback transcript: '{transcript}'", selected_model, temperature)
+                            formatted_response = parse_agent_response(raw_response)
+                            st.markdown(formatted_response)
+                        else:
+                            st.warning("Agent analysis skipped: System Backend is offline or no model selected.")
+                    
+                except Exception as e:
+                    st.error(f"Transcription failed: {e}")
+                    st.markdown("*Note: Ensure you have installed whisper (`pip install openai-whisper`) and `ffmpeg` on your system.*")
