@@ -2,6 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # Virtual environments
 .venv/
@@ -11,9 +17,26 @@ env/
 # Streamlit specific
 .streamlit/
 
+# Local editor and Codex workspace files
+.idea/
+.vscode/
+/.codex-remote-attachments/
+
+# Generated reports, renders, and temporary work files
+/output/
+/tmp/
+
+# Local planning artifact (not part of the application)
+/PROJECT_ROADMAP.txt
+
+# Runtime logs
+*.log
+
 # OS generated files
 .DS_Store
 Thumbs.db
 
 # Security: Never push environment variables (API keys, passwords)
 .env
+.env.*
+!.env.example
