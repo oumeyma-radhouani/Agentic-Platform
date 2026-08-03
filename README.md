@@ -1,15 +1,19 @@
-# ☁️ NOVA : Plateforme Agentique d'Analyse de la Satisfaction Client
+# 🌌 NOVA Terminal (Agentic Platform)
 
-Ce dépôt contient le code source de la Plateforme Agentique d'Analyse de la Satisfaction Client et d'Aide à la Décision. 
+NOVA is a local AI architecture control plane designed to orchestrate and monitor local LLM agents using LangChain and Ollama. 
 
-## Objectifs du Projet
-Le système est conçu pour automatiser l'analyse linguistique des comptes-rendus d'appels et orchestrer la prise de décision métier en croisant ces retours avec les données opérationnelles du Système d'Information (SI) de CloudShift.
+This repository contains the frontend command center (Streamlit) and the JSON aggregation utilities required to parse and format agentic task outputs.
 
-## Architecture Technique
-La solution repose sur une architecture modulaire open-source:
-* **LlamaIndex :** Extraction et analyse sémantique des comptes-rendus non structurés.
-* **LangChain :** Intégration et connecteurs vers les APIs du SI.
+## 🛠️ Prerequisites
 
-## Équipe
-* Oumeyma Radhouani
-* Saïd Hadj Abdallah
+Before starting the node, ensure your local environment meets the following requirements:
+1. **Python 3.10+**
+2. **Ollama** (Must be installed and running locally)
+3. At least one model pulled via Ollama (e.g., `ollama run llama3:8b`)
+
+## 🚀 Setup & Installation
+
+**1. Clone the repository and navigate to the project directory:**
+```bash
+git clone <your-repo-link>
+cd CloudShift-Agentic-Platform
