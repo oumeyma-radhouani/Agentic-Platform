@@ -44,7 +44,7 @@ def mock_langchain_response(user_prompt, model, temp):
     return json.dumps(mock_data)
 
 # --- ADVANCED UI CONFIGURATION ---
-st.set_page_config(page_title="NOVA Terminal", page_icon="🌌", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="NOVA Terminal", layout="wide", initial_sidebar_state="expanded")
 
 # --- CUSTOM CSS INJECTION ---
 st.markdown("""
@@ -73,7 +73,7 @@ current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
 # --- SIDEBAR: AGENT CONFIGURATION PANEL ---
 with st.sidebar:
-    st.header("⚙️ Agentic Node Setup")
+    st.header("Agentic Node Setup")
     st.divider()
 
     if available_models:
@@ -85,15 +85,14 @@ with st.sidebar:
     temperature = st.slider("Generation Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     
     st.divider()
-    st.caption(f"📅 Node Date: {current_date}")
-    st.caption(f"🌐 Platform: NOVA v0.2.0-beta")
+    st.caption(f"Node Date: {current_date}")
+    st.caption(f"Platform: NOVA v0.2.0-beta")
     st.caption("Deployment: `nova-local-dev`")
 
 # --- MAIN DASHBOARD: COMMAND CENTER ---
 st.markdown(f"""
 <div class="nova-header">
     <div style="display:flex; align-items:center;">
-        <span style="font-size:2rem; margin-right:15px;">📡</span>
         <div>
             <h1 style="margin:0; font-size:1.8rem; color:#f0f6fc;">NOVA TERMINAL</h1>
             <p style="margin:0; color:#8b949e; font-size:0.9rem;">PLATFORM OPERATIONAL LOCALHOST:11434</p>
@@ -121,8 +120,13 @@ with status_col3:
 
 st.divider()
 
-# --- TABS FOR UI SEPARATION (Added Tab 3) ---
-tab_console, tab_batch, tab_audio = st.tabs(["💬 Live Console", "🗃️ Batch Analysis Pipeline", "🎙️ Audio Processing"])
+# --- TABS FOR UI SEPARATION (Added Tab 4) ---
+tab_console, tab_batch, tab_audio, tab_rag = st.tabs([
+    "Live Console", 
+    "Batch Analysis Pipeline", 
+    "Audio Processing", 
+    "Knowledge Base"
+])
 
 # --- TAB 1: ORIGINAL CHAT INTERFACE ---
 with tab_console:
@@ -168,7 +172,7 @@ with tab_batch:
             st.success(f"Loaded {len(batch_data) if isinstance(batch_data, list) else 1} records from `{uploaded_file.name}`.")
             
             # 2. Run Batch Button
-            if st.button("🚀 Initialize Batch Run", type="primary", use_container_width=True):
+            if st.button("Initialize Batch Run", type="primary", use_container_width=True):
                 if not is_ollama_online:
                     st.error("Cannot run batch: Ollama is offline.")
                 else:
@@ -211,13 +215,13 @@ with tab_batch:
                                 
                             # 7. Errors Table
                             if "errors" in batch_results and batch_results["errors"]:
-                                st.markdown("### ⚠️ Pipeline Exceptions")
+                                st.markdown("### Pipeline Exceptions")
                                 st.dataframe(batch_results["errors"], use_container_width=True)
 
                             # 8. Download Button
                             st.divider()
                             st.download_button(
-                                label="📥 Download Complete Telemetry (JSON)",
+                                label="Download Complete Telemetry (JSON)",
                                 data=json.dumps(batch_results, indent=4),
                                 file_name=f"NOVA_BatchResult_{current_date}.json",
                                 mime="application/json",
@@ -241,7 +245,7 @@ with tab_audio:
         # Show an audio player so the user can hear the file they just uploaded
         st.audio(audio_file)
         
-        if st.button("🎙️ Transcribe Audio", type="primary"):
+        if st.button("Transcribe Audio", type="primary"):
             with st.spinner("Transcribing audio via local Whisper model (this may take a moment)..."):
                 # We save the uploaded file temporarily so Whisper can read it from the disk
                 temp_audio_path = "temp_audio_upload.wav"
@@ -259,7 +263,7 @@ with tab_audio:
                     
                     # --- AI AGENT ANALYSIS INTEGRATION ---
                     st.divider()
-                    st.markdown("### 🧠 AI Agent Analysis")
+                    st.markdown("### AI Agent Analysis")
                     with st.spinner("Analyzing transcript context and sentiment..."):
                         if is_ollama_online and selected_model:
                             # Feed the raw transcript directly into the agent
@@ -272,3 +276,33 @@ with tab_audio:
                 except Exception as e:
                     st.error(f"Transcription failed: {e}")
                     st.markdown("*Note: Ensure you have installed whisper (`pip install openai-whisper`) and `ffmpeg` on your system.*")
+
+# --- TAB 4: KNOWLEDGE BASE (RAG) ---
+with tab_rag:
+    st.subheader("Azure RAG Knowledge Base")
+    st.markdown("Upload internal company documents, product manuals, or policies to ground the AI's analysis in reality and prevent hallucinations.")
+    
+    # File uploader for text and document formats
+    uploaded_doc = st.file_uploader("Upload Reference Document", type=["txt", "pdf", "md"])
+    
+    if uploaded_doc is not None:
+        st.info(f"Document Loaded: {uploaded_doc.name}")
+        
+        if st.button("Chunk & Vectorize (Send to Azure)", type="primary"):
+            with st.spinner("Connecting to Azure AI Search... Chunking document and generating embeddings..."):
+                # 1. Save the uploaded file temporarily
+                temp_doc_path = f"temp_{uploaded_doc.name}"
+                with open(temp_doc_path, "wb") as f:
+                    f.write(uploaded_doc.getbuffer())
+                
+                try:
+                    # 2. Pass it to the backend RAG engine
+                    from src.backend.azure_rag import process_and_vectorize
+                    success = process_and_vectorize(temp_doc_path, uploaded_doc.name)
+                    
+                    if success:
+                        st.success(f"Document '{uploaded_doc.name}' successfully indexed in Azure Vector Store!")
+                        st.markdown("> **Note:** The backend vector embedding logic is currently scaffolded. Insert Azure API keys in `src/backend/azure_rag.py` to go live.")
+                        
+                except Exception as e:
+                    st.error(f"Vectorization failed: {e}")
