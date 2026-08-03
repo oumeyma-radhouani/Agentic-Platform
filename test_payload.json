@@ -1,0 +1,20 @@
+[
+  {
+    "id": "FB-001", 
+    "customer_id": "CUST-99", 
+    "score": 9, 
+    "comment": "UI is incredibly fast and responsive."
+  },
+  {
+    "id": "FB-002", 
+    "customer_id": "CUST-12", 
+    "score": 3, 
+    "comment": "App crashed on launch."
+  },
+  {
+    "id": "FB-003", 
+    "customer_id": "CUST-45", 
+    "score": 8, 
+    "comment": "Looks great, the dark mode is awesome."
+  }
+]

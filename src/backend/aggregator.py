@@ -1,5 +1,10 @@
+"""Deterministic statistics for analyzed customer feedback."""
+from __future__ import annotations
+
 import json
 import logging
+from collections import Counter
+from typing import Any, Iterable, Mapping
 
 # Set up basic logging so we can see errors in the terminal
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,19 +41,6 @@ def parse_agent_response(raw_response: str) -> str:
         # Catch-all for any weird formatting errors so it doesn't crash the dashboard
         logging.error(f"Error parsing agent output: {e}")
         return f"⚠️ **Output Parsing Error:** Could not format the agent's response. \n\n*Raw output:* {raw_response}"
-
-# --- Quick Test (You can run this file directly to see it work) ---
-if __name__ == "__main__":
-    # Fake JSON from an agent
-    fake_agent_output = '{"status": "success", "extracted_entities": ["User A", "Server B"], "confidence_score": "98%", "next_steps": "Awaiting manual approval."}'
-    
-    print("--- PARSED OUTPUT ---")
-    print(parse_agent_response(fake_agent_output))"""Deterministic statistics for analyzed customer feedback."""
-
-from __future__ import annotations
-
-from collections import Counter
-from typing import Any, Iterable, Mapping
 
 
 def classify_nps(score: int) -> str:
@@ -126,3 +118,12 @@ def aggregate_results(
         "top_themes": calculate_top_themes(records, limit=top_theme_limit),
         "processed_records": records,
     }
+
+
+# --- Quick Test (You can run this file directly to see it work) ---
+if __name__ == "__main__":
+    # Fake JSON from an agent
+    fake_agent_output = '{"status": "success", "extracted_entities": ["User A", "Server B"], "confidence_score": "98%", "next_steps": "Awaiting manual approval."}'
+    
+    print("--- PARSED OUTPUT ---")
+    print(parse_agent_response(fake_agent_output))

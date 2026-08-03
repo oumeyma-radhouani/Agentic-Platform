@@ -5,6 +5,14 @@ import datetime
 import json
 from src.backend.aggregator import parse_agent_response
 
+# --- IMPORT SAID'S BACKEND FUNCTION ---
+# Wrapping in a try/except just in case the branch hasn't synced properly yet
+try:
+    from src.backend.batch_runner import run_batch
+except ImportError:
+    st.error("Backend Error: Could not import run_batch from src.backend.batch_runner. Ensure you are on the correct branch.")
+    def run_batch(data): return {} # Dummy fallback
+
 # --- REAL LOCAL SYSTEM CHECKS ---
 def check_ollama_status():
     try:
@@ -23,10 +31,9 @@ def get_installed_models():
     except requests.exceptions.RequestException:
         return []
 
-# --- MOCK BACKEND (Waiting for Said's LangChain integration) ---
+# --- MOCK BACKEND (For Live Console) ---
 def mock_langchain_response(user_prompt, model, temp):
     time.sleep(1.2)  
-    # Simulating the LangChain agent returning structured JSON
     mock_data = {
         "status": "AGENT_READY",
         "routed_model": model,
@@ -42,82 +49,23 @@ st.set_page_config(page_title="NOVA Terminal", page_icon="🌌", layout="wide", 
 # --- CUSTOM CSS INJECTION ---
 st.markdown("""
 <style>
-    /* Main Background and Text */
-    .stApp {
-        background-color: #0d1117;
-        color: #c9d1d9;
-        font-family: 'Inter', sans-serif;
-    }
-
-    /* Sidebar Styling */
-    section[data-testid="stSidebar"] {
-        background-color: #161b22;
-        border-right: 1px solid #30363d;
-    }
-    
-    section[data-testid="stSidebar"] .stMarkdown h1, section[data-testid="stSidebar"] .stMarkdown h2 {
-        color: #58a6ff;
-    }
-
-    /* Target Headers */
-    h1, h2, h3, h4, h5 {
-        color: #f0f6fc;
-        font-weight: 700;
-    }
-
-    /* Metric Cards Styling */
-    [data-testid="stMetricValue"] {
-        color: #58a6ff;
-        font-weight: 800;
-        font-size: 2.2rem;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: #8b949e;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-    }
-    
-    [data-testid="stMetricDelta"] {
-        font-size: 0.9rem;
-    }
-
-    /* Custom Styling for Containers and Cards */
-    div.stContainer {
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        background-color: #161b22;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    
-    /* Styling the Chat Input Area */
-    .stChatInputContainer {
-        border-top: 1px solid #30363d;
-        background-color: #0d1117;
-    }
-    
-    /* Hide the Streamlit footer and main menu */
+    .stApp { background-color: #0d1117; color: #c9d1d9; font-family: 'Inter', sans-serif; }
+    section[data-testid="stSidebar"] { background-color: #161b22; border-right: 1px solid #30363d; }
+    section[data-testid="stSidebar"] .stMarkdown h1, section[data-testid="stSidebar"] .stMarkdown h2 { color: #58a6ff; }
+    h1, h2, h3, h4, h5 { color: #f0f6fc; font-weight: 700; }
+    [data-testid="stMetricValue"] { color: #58a6ff; font-weight: 800; font-size: 2.2rem; }
+    [data-testid="stMetricLabel"] { color: #8b949e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+    [data-testid="stMetricDelta"] { font-size: 0.9rem; }
+    div.stContainer { border: 1px solid #30363d; border-radius: 12px; background-color: #161b22; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .stChatInputContainer { border-top: 1px solid #30363d; background-color: #0d1117; }
     #MainMenu, footer {visibility: hidden;}
-
-    /* Custom Class for Header Bar */
-    .nova-header {
-        background-color: #161b22;
-        padding: 10px 20px;
-        border-radius: 12px;
-        border: 1px solid #30363d;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-    }
-
+    .nova-header { background-color: #161b22; padding: 10px 20px; border-radius: 12px; border: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: transparent; border-radius: 4px 4px 0px 0px; gap: 1px; padding-top: 10px; padding-bottom: 10px; }
+    .stTabs [aria-selected="true"] { background-color: #1f2428; border-bottom: 2px solid #58a6ff; color: #58a6ff !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Fetch real system data before rendering
 is_ollama_online = check_ollama_status()
 available_models = get_installed_models()
 current_time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -126,28 +74,22 @@ current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 # --- SIDEBAR: AGENT CONFIGURATION PANEL ---
 with st.sidebar:
     st.header("⚙️ Agentic Node Setup")
-    
     st.divider()
 
-    # REAL PARAMETER: Model Dropdown 
     if available_models:
         selected_model = st.selectbox("Active Inference Model", available_models)
     else:
         st.warning("No models detected. Pulled model is required via Ollama.")
         selected_model = None
     
-    # REAL PARAMETER: Generation Control
     temperature = st.slider("Generation Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     
     st.divider()
-    
     st.caption(f"📅 Node Date: {current_date}")
-    st.caption(f"🌐 Platform: NOVA v0.1.0-alpha")
+    st.caption(f"🌐 Platform: NOVA v0.2.0-beta")
     st.caption("Deployment: `nova-local-dev`")
 
 # --- MAIN DASHBOARD: COMMAND CENTER ---
-
-# 1. Custom Header Bar
 st.markdown(f"""
 <div class="nova-header">
     <div style="display:flex; align-items:center;">
@@ -163,60 +105,127 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. Row 1: Status Grid (Real Telemetry Cards)
 status_col1, status_col2, status_col3 = st.columns(3)
-
 with status_col1:
     with st.container(border=True):
         if is_ollama_online:
             st.metric(label="System Backend", value="Online", delta="Connected", delta_color="normal")
         else:
             st.metric(label="System Backend", value="Offline", delta="Disconnected", delta_color="inverse")
-
 with status_col2:
     with st.container(border=True):
-        model_count = len(available_models)
-        st.metric(label="Model Registry", value=f"{model_count} Models", delta="Idle", delta_color="off")
-
+        st.metric(label="Model Registry", value=f"{len(available_models)} Models", delta="Idle", delta_color="off")
 with status_col3:
     with st.container(border=True):
         st.metric(label="Telemetry Status", value="Nominal", delta="No Alert", delta_color="off")
 
 st.divider()
 
-# 3. Row 2: Console Interface (Primary Chat)
-st.subheader("Console Input/Output Logs")
-st.markdown("Monitor system interactions and initialize agentic tasks below.")
+# --- TABS FOR UI SEPARATION ---
+tab_console, tab_batch = st.tabs(["💬 Live Console", "🗃️ Batch Analysis Pipeline"])
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# --- TAB 1: ORIGINAL CHAT INTERFACE ---
+with tab_console:
+    st.subheader("Console Input/Output Logs")
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-# Styled chat history render
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-# Only allow input if the server is actually running and has a model
-if is_ollama_online and selected_model:
-    if prompt := st.chat_input("Initialize agent task... [Ctrl+Enter]"):
-        
-        # 1. Display user prompt
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    if is_ollama_online and selected_model:
+        if prompt := st.chat_input("Initialize agent task... [Ctrl+Enter]"):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-        # 2. Generate and display assistant response
-        with st.chat_message("assistant"):
-            with st.spinner(f"NOVA Operating..."):
-                # Get the raw JSON string from the mock backend
-                raw_response = mock_langchain_response(prompt, selected_model, temperature)
+            with st.chat_message("assistant"):
+                with st.spinner(f"NOVA Operating..."):
+                    raw_response = mock_langchain_response(prompt, selected_model, temperature)
+                    formatted_response = parse_agent_response(raw_response)
+                    st.markdown(formatted_response)
+            st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+    else:
+        st.info("System Console is locked. Ensure local Ollama is running.")
+
+# --- TAB 2: NEW BATCH ANALYSIS PIPELINE ---
+with tab_batch:
+    st.subheader("Batch Data Processing")
+    st.markdown("Upload structured JSON/JSONL payloads for high-volume automated agentic analysis.")
+    
+    # 1. File Uploader
+    uploaded_file = st.file_uploader("Select Dataset", type=["json", "jsonl"])
+    
+    if uploaded_file is not None:
+        try:
+            # Parse the uploaded file to pass clean Python objects to Said's backend
+            if uploaded_file.name.endswith(".jsonl"):
+                batch_data = [json.loads(line) for line in uploaded_file]
+            else:
+                batch_data = json.load(uploaded_file)
                 
-                # Pass it through our aggregator to format it cleanly!
-                formatted_response = parse_agent_response(raw_response)
-                
-                st.markdown(formatted_response)
-                
-        # 3. Save the *formatted* response to state
-        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
-else:
-    st.info("System Console is currently locked. Ensure the local Ollama server is running and at least one model is installed to initialize agentic tasks.")
+            st.success(f"Loaded {len(batch_data) if isinstance(batch_data, list) else 1} records from `{uploaded_file.name}`.")
+            
+            # 2. Run Batch Button
+            if st.button("🚀 Initialize Batch Run", type="primary", use_container_width=True):
+                if not is_ollama_online:
+                    st.error("Cannot run batch: Ollama is offline.")
+                else:
+                    # 3. Progress Bar Integration
+                    progress_text = "Transmitting payload to local inference engine..."
+                    my_bar = st.progress(0, text=progress_text)
+                    
+                    # Simulating progress before the blocking backend call
+                    for percent_complete in range(100):
+                        time.sleep(0.01)
+                        my_bar.progress(percent_complete + 1, text="Executing batch pipeline via src/backend/batch_runner.py...")
+                    
+                    with st.spinner("Awaiting backend processing..."):
+                        # --- CALLING SAID'S BACKEND FUNCTION ---
+                        try:
+                            # Assuming run_batch takes the parsed data and the selected model
+                            batch_results = run_batch(batch_data) 
+                            
+                            st.success("Batch pipeline executed successfully!")
+                            
+                            # 4. Summary Cards (using summary_metrics)
+                            if "summary_metrics" in batch_results:
+                                st.markdown("### Executive Summary")
+                                metric_cols = st.columns(len(batch_results["summary_metrics"]))
+                                for i, (key, value) in enumerate(batch_results["summary_metrics"].items()):
+                                    metric_cols[i].metric(label=str(key).replace("_", " ").title(), value=value)
+                            
+                            st.divider()
+                            
+                            # 5. Top Themes (Chart/Table)
+                            if "top_themes" in batch_results and batch_results["top_themes"]:
+                                st.markdown("### Top Extracted Themes")
+                                # Streamlit renders dicts natively as bar charts if formatted correctly
+                                st.bar_chart(batch_results["top_themes"])
+                            
+                            # 6. Processed Records Table
+                            if "processed_records" in batch_results:
+                                st.markdown("### Processed Records")
+                                st.dataframe(batch_results["processed_records"], use_container_width=True)
+                                
+                            # 7. Errors Table
+                            if "errors" in batch_results and batch_results["errors"]:
+                                st.markdown("### ⚠️ Pipeline Exceptions")
+                                st.dataframe(batch_results["errors"], use_container_width=True)
+
+                            # 8. Download Button
+                            st.divider()
+                            st.download_button(
+                                label="📥 Download Complete Telemetry (JSON)",
+                                data=json.dumps(batch_results, indent=4),
+                                file_name=f"NOVA_BatchResult_{current_date}.json",
+                                mime="application/json",
+                                type="primary"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"Backend execution failed: {e}")
+                            
+        except Exception as e:
+            st.error(f"Failed to parse uploaded file. Ensure it is valid JSON/JSONL. Error: {e}")

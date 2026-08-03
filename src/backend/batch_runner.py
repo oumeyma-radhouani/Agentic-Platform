@@ -10,7 +10,8 @@ from time import perf_counter
 from typing import Any, TextIO
 from uuid import uuid4
 
-from .aggregator import aggregate_results, classify_nps
+# FIXED: Changed relative import to absolute import for Streamlit stability
+from src.backend.aggregator import aggregate_results, classify_nps
 
 Analyzer = Callable[[str, int, str], Mapping[str, Any]]
 ProgressCallback = Callable[[int, int], None]
@@ -116,8 +117,8 @@ def validate_record(
 
 
 def _default_analyzer() -> Analyzer:
-    # Import lazily so validation and aggregation tests do not require Ollama.
-    from ai.extractor import analyze_feedback
+    # FIXED: Added 'src.' to the import path so Python can find it from the root folder
+    from src.ai.extractor import analyze_feedback
 
     return analyze_feedback
 
