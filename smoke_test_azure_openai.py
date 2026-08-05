@@ -1,3 +1,4 @@
+"""smoke_test_azure_openai.py"""
 """Quick Azure OpenAI connectivity smoke test."""
 
 import os

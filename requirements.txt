@@ -2,3 +2,5 @@ streamlit
 starlette<1
 openai
 python-dotenv
+langchain-mongodb
+pymongo
