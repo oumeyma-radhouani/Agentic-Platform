@@ -1,15 +1,16 @@
 import os
 import json
 import tempfile
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
 
 # === IMPORTS DE VOTRE LOGIQUE EXISTANTE ===
 from src.backend.batch_runner import run_batch
 from src.ai.azure_client import is_azure_configured, create_chat_completion
 
-app = FastAPI(title="NOVA Agentic API", version="2.0")
+app = FastAPI(title="NOVA API", version="2.0")
 
 # Autorise Next.js à communiquer avec ce backend
 app.add_middleware(
@@ -22,13 +23,24 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = "admin_dashboard_session"
+
+def get_mongo_history(session_id: str):
+    """Fonction utilitaire pour récupérer l'historique MongoDB de la session"""
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    return MongoDBChatMessageHistory(
+        session_id=session_id,
+        connection_string=mongo_uri,
+        database_name="nova_db", # Base de données renommée au nom du produit
+        collection_name="chat_histories"
+    )
 
 @app.get("/api/health")
 def health_check():
     return {"status": "online", "azure_ready": is_azure_configured()}
 
 @app.post("/api/batch")
-async def process_batch(file: UploadFile = File(...)):
+async def process_batch(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
     try:
         content = await file.read()
         filename = file.filename or ""
@@ -40,32 +52,57 @@ async def process_batch(file: UploadFile = File(...)):
             batch_data = json.loads(content.decode('utf-8'))
             
         results = run_batch(batch_data)
+        
+        # SAUVEGARDE DANS LA MÉMOIRE MONGODB
+        history = get_mongo_history(session_id)
+        history.add_ai_message(f"[Système] L'analyse du lot est terminée. J'ai traité {results['summary_metrics']['total_processed']} retours avec un NPS global de {results['summary_metrics']['nps_score']}.")
+        
         return {"success": True, "data": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest):
-    """Gère la conversation avec le Copilot interactif."""
+    """Gère la conversation avec NOVA et sauvegarde dans MongoDB."""
     try:
         if not is_azure_configured():
             return {"response": "Erreur : Azure OpenAI n'est pas configuré."}
         
-        system_prompt = "Vous êtes NOVA, l'Assistant IA d'Analyse de la Satisfaction Client. Soyez clair et précis en français."
-        response = create_chat_completion([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": payload.message}
-        ])
+        history = get_mongo_history(payload.session_id)
+
+        # Prompt système réinitialisé avec l'identité NOVA
+        system_prompt = (
+            "Vous êtes NOVA, un Assistant IA d'analyse de données et d'aide à la décision. "
+            "Vous avez accès aux résultats des fichiers uploadés par l'utilisateur. "
+            "Soyez clair, précis et concis en français."
+        )
+        messages_for_azure = [{"role": "system", "content": system_prompt}]
+        
+        # Injecter l'historique précédent depuis MongoDB
+        for msg in history.messages:
+            role = "user" if msg.type == "human" else "assistant"
+            messages_for_azure.append({"role": role, "content": msg.content})
+            
+        # Ajouter le message actuel
+        messages_for_azure.append({"role": "user", "content": payload.message})
+
+        # Appel à Azure OpenAI
+        response = create_chat_completion(messages_for_azure)
+        
+        # Sauvegarder dans MongoDB
+        history.add_user_message(payload.message)
+        history.add_ai_message(response)
+        
         return {"response": response}
+        
     except Exception as e:
+        print(f"Erreur MongoDB/Chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/audio")
-async def process_audio(file: UploadFile = File(...)):
-    """Reçoit un fichier audio et le transcrit avec Whisper."""
+async def process_audio(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
+    """Reçoit un fichier audio, le transcrit avec Whisper et sauvegarde dans MongoDB."""
     try:
-        # Import de votre fonction d'origine
-        # REMARQUE : Vérifiez que la fonction s'appelle bien "transcribe_audio" dans src.backend.audio
         from src.backend.audio import transcribe_audio
         
         suffix = os.path.splitext(file.filename or ".wav")[1]
@@ -75,8 +112,12 @@ async def process_audio(file: UploadFile = File(...)):
             tmp_path = tmp.name
 
         try:
-            # Exécution de Whisper
             transcript = transcribe_audio(tmp_path)
+            
+            # SAUVEGARDE DANS LA MÉMOIRE MONGODB
+            history = get_mongo_history(session_id)
+            history.add_ai_message(f"[Système] J'ai transcrit le fichier audio {file.filename}. Voici le contenu : {transcript}")
+            
             return {"success": True, "transcript": transcript}
         finally:
             if os.path.exists(tmp_path):
@@ -86,8 +127,8 @@ async def process_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rag")
-async def process_rag(file: UploadFile = File(...)):
-    """Reçoit un document PDF/TXT pour l'indexation RAG."""
+async def process_rag(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
+    """Reçoit un document PDF/TXT pour l'indexation RAG et sauvegarde dans MongoDB."""
     try:
         from src.backend.azure_rag import process_and_vectorize
         
@@ -99,6 +140,12 @@ async def process_rag(file: UploadFile = File(...)):
 
         try:
             success = process_and_vectorize(tmp_path, file.filename or "doc")
+            
+            # SAUVEGARDE DANS LA MÉMOIRE MONGODB
+            if success:
+                history = get_mongo_history(session_id)
+                history.add_ai_message(f"[Système] J'ai indexé et vectorisé le document {file.filename} dans la base de connaissances.")
+                
             return {"success": success, "filename": file.filename}
         finally:
             if os.path.exists(tmp_path):
