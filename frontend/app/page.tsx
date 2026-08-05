@@ -4,65 +4,81 @@ import { useState, useEffect } from "react";
 import { 
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
-  Send, Bot, ChevronDown, AlertCircle 
+  Send, Bot, ChevronDown, AlertCircle, Mic, Database, FileText
 } from "lucide-react";
+
+const API_BASE_URL = "http://127.0.0.1:8000";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("CHRONOLOGIE");
   const [backendStatus, setBackendStatus] = useState("Connexion...");
+  
+  // États de l'interface
+  const [activeTask, setActiveTask] = useState<"batch" | "audio" | "rag">("batch");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
   
-  // États pour le Chat Copilot
+  // Résultats des différentes tâches
+  const [batchResults, setBatchResults] = useState<any>(null);
+  const [audioResult, setAudioResult] = useState<string | null>(null);
+  const [ragResult, setRagResult] = useState<any>(null);
+
+  // Chat Copilot
   const [chatInput, setChatInput] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "copilot", text: string }>>([
-    { sender: "copilot", text: "Systèmes nominaux. Je suis prêt à vous assister." }
+    { sender: "copilot", text: "Systèmes nominaux. Je suis prêt à vous assister pour vos analyses de données, transcriptions ou requêtes documentaires." }
   ]);
 
-  // Ping du Backend au chargement
   useEffect(() => {
-    fetch("http://localhost:8000/api/health")
+    fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
       .then((data) => setBackendStatus(data.status === "online" ? "Connecté" : "Hors ligne"))
       .catch(() => setBackendStatus("Déconnecté"));
   }, []);
 
-  // Fonction 1 : Envoi du fichier JSONL (Batch)
+  // Réinitialiser le fichier quand on change de tâche
+  useEffect(() => {
+    setFile(null);
+  }, [activeTask]);
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
     setLoading(true);
+
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      // CHANGED: Forced 127.0.0.1 instead of localhost
-      const res = await fetch("http://127.0.0.1:8000/api/batch", { method: "POST", body: formData });
+      if (activeTask === "batch") {
+        const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Erreur serveur Batch");
+        const data = await res.json();
+        setBatchResults(data.data);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Analyse terminée. NPS global : ${data.data.summary_metrics.nps_score}.` }]);
       
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.detail || "Erreur serveur");
+      } else if (activeTask === "audio") {
+        const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Erreur serveur Audio");
+        const data = await res.json();
+        setAudioResult(data.transcript);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: "J'ai terminé la transcription de l'audio. Que souhaitez-vous en faire ?" }]);
+      
+      } else if (activeTask === "rag") {
+        const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Erreur serveur RAG");
+        const data = await res.json();
+        setRagResult(data);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document ${data.filename} a été vectorisé et ajouté à la base de connaissances Azure.` }]);
       }
-      
-      const data = await res.json();
-      setResults(data.data);
-      
-      // Auto-message from Copilot
-      setChatMessages(prev => [...prev, { 
-        sender: "copilot", 
-        text: `L'analyse du lot est terminée. J'ai traité ${data.data.summary_metrics.total_processed} retours avec un NPS global de ${data.data.summary_metrics.nps_score}.` 
-      }]);
-
     } catch (error: any) {
       console.error(error);
-      alert(`Erreur Backend: ${error.message}. Vérifiez le terminal Python !`);
+      alert(`Erreur Backend: ${error.message}. Vérifiez le terminal Python.`);
     }
     setLoading(false);
   };
 
-  // Fonction 2 : Envoi d'un message au Chat Copilot
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isChatSending) return;
@@ -73,7 +89,7 @@ export default function Dashboard() {
     setIsChatSending(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/chat", {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userText })
@@ -81,9 +97,16 @@ export default function Dashboard() {
       const data = await res.json();
       setChatMessages(prev => [...prev, { sender: "copilot", text: data.response }]);
     } catch (error) {
-      setChatMessages(prev => [...prev, { sender: "copilot", text: "Erreur de connexion au serveur API." }]);
+      setChatMessages(prev => [...prev, { sender: "copilot", text: "Erreur de communication avec l'API." }]);
     }
     setIsChatSending(false);
+  };
+
+  // Configuration dynamique selon la tâche
+  const taskConfig = {
+    batch: { accept: ".json,.jsonl", icon: <Mail size={14} />, label: "Fichier JSONL / JSON" },
+    audio: { accept: ".wav,.mp3", icon: <Mic size={14} />, label: "Fichier Audio (WAV, MP3)" },
+    rag: { accept: ".pdf,.txt,.docx", icon: <Database size={14} />, label: "Document (PDF, TXT)" }
   };
 
   return (
@@ -120,36 +143,58 @@ export default function Dashboard() {
         {/* COLONNE GAUCHE */}
         <aside className="w-[320px] flex flex-col gap-4 overflow-y-auto shrink-0 pb-4">
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2 text-slate-800">
                 <ArrowLeft size={18} />
-                <h1 className="text-xl font-semibold">Analyse de Lot</h1>
+                <h1 className="text-xl font-semibold">Workspace IA</h1>
               </div>
             </div>
             
-            <div className="flex gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#2353a4]/10 to-[#2353a4]/20 rounded-xl flex items-center justify-center border border-[#2353a4]/10">
-                <Bot size={32} className="text-[#2353a4]" />
+            <div className="space-y-2 mb-6">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Sélecteur de tâche</p>
+              <div className="grid grid-cols-1 gap-2">
+                <button 
+                  onClick={() => setActiveTask("batch")}
+                  className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "batch" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  <MessageSquare size={16}/> Analyse de feedbacks
+                </button>
+                <button 
+                  onClick={() => setActiveTask("audio")}
+                  className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "audio" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  <Mic size={16}/> Transcription Audio
+                </button>
+                <button 
+                  onClick={() => setActiveTask("rag")}
+                  className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "rag" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  <Database size={16}/> Indexation (RAG)
+                </button>
               </div>
-              <div>
-                <h2 className="font-bold text-slate-800">Agent CloudShift</h2>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Plateforme Agentique</p>
-              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-1 font-semibold">Format attendu</p>
+              <p className="text-sm text-[#f37021] font-semibold flex items-center gap-2">
+                {taskConfig[activeTask].icon} {taskConfig[activeTask].label}
+              </p>
             </div>
           </div>
 
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 overflow-hidden">
              <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Configuration du lot</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Chargement</span>
+                <ChevronDown size={14} className="text-slate-400" />
              </div>
              <div className="p-4">
                 <form onSubmit={handleUpload} className="flex flex-col gap-4">
                   <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center bg-slate-50/50 hover:bg-blue-50/30 transition-colors">
                     <input
                       type="file"
-                      accept=".json,.jsonl"
+                      accept={taskConfig[activeTask].accept}
                       onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2353a4]/10 file:text-[#2353a4] cursor-pointer"
+                      className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2353a4]/10 file:text-[#2353a4] cursor-pointer transition-colors"
                     />
                   </div>
                   <button
@@ -157,7 +202,7 @@ export default function Dashboard() {
                     disabled={!file || loading}
                     className="w-full bg-[#f37021] hover:bg-[#d95d13] disabled:bg-slate-300 text-white text-sm font-bold py-2.5 rounded-lg transition-all shadow-md"
                   >
-                    {loading ? "Analyse en cours..." : "Lancer l'analyse"}
+                    {loading ? "Exécution en cours..." : "Lancer le traitement"}
                   </button>
                 </form>
              </div>
@@ -167,62 +212,95 @@ export default function Dashboard() {
         {/* COLONNE CENTRALE */}
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50">
-            <Tab label="CHRONOLOGIE" active={activeTab === "CHRONOLOGIE"} onClick={() => setActiveTab("CHRONOLOGIE")} />
+            <Tab label="CHRONOLOGIE" active={true} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">RESULTATS DE L'ANALYSE</h3>
-
-            {!results && !loading && (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                <Bot size={48} className="mb-3 opacity-30" />
-                <p className="text-sm font-medium">Sélectionnez un fichier JSONL et lancez l'analyse.</p>
-              </div>
-            )}
+            <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">RÉSULTATS DE L'EXÉCUTION</h3>
 
             {loading && (
               <div className="flex flex-col items-center justify-center h-64 text-[#2353a4]">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2353a4] mb-4"></div>
-                <p className="text-sm font-semibold">Analyse Azure OpenAI en cours...</p>
+                <p className="text-sm font-semibold">L'Agent CloudShift travaille...</p>
               </div>
             )}
 
-            {results && !loading && (
-              <div className="space-y-8 animate-in fade-in duration-500">
-                
+            {!loading && activeTask === "batch" && batchResults && (
+              <div className="animate-in fade-in duration-500">
                 <div className="flex gap-4">
                   <div className="w-9 h-9 rounded-full bg-[#f37021] flex items-center justify-center shrink-0 mt-1 shadow-md">
                     <AlertCircle size={18} className="text-white" />
                   </div>
-                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                     <p className="text-sm font-bold text-[#2353a4] mb-1">
-                      Rapport Généré : {results.summary_metrics.total_processed} retours traités
+                      Rapport Généré : {batchResults.summary_metrics.total_processed} retours traités
                     </p>
                     <p className="text-xs text-slate-500 mb-5 font-medium">Système IA | Statut: <span className="text-[#f37021] font-bold">Terminé</span></p>
                     
                     <div className="grid grid-cols-3 gap-4 mb-5 pb-5 border-b border-slate-100">
                       <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100">
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Promoteurs</p>
-                        <p className="text-2xl font-extrabold text-emerald-600">{results.summary_metrics.total_promoters}</p>
+                        <p className="text-2xl font-extrabold text-emerald-600">{batchResults.summary_metrics.total_promoters}</p>
                       </div>
                       <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100">
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Passifs</p>
-                        <p className="text-2xl font-extrabold text-amber-500">{results.summary_metrics.total_passives}</p>
+                        <p className="text-2xl font-extrabold text-amber-500">{batchResults.summary_metrics.total_passives}</p>
                       </div>
                       <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 ring-1 ring-[#2353a4]/20">
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">NPS Global</p>
-                        <p className="text-2xl font-extrabold text-[#2353a4]">{results.summary_metrics.nps_score}</p>
+                        <p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
+            {!loading && activeTask === "audio" && audioResult && (
+              <div className="animate-in fade-in duration-500">
+                <div className="flex gap-4">
+                  <div className="w-9 h-9 rounded-full bg-[#2353a4] flex items-center justify-center shrink-0 mt-1 shadow-md">
+                    <Mic size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <p className="text-sm font-bold text-[#2353a4] mb-1">Transcription Audio (Whisper)</p>
+                    <p className="text-xs text-slate-500 mb-4 font-medium">Modèle local OpenAI | Statut: <span className="text-emerald-500 font-bold">Complété</span></p>
+                    <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
+                      {audioResult}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!loading && activeTask === "rag" && ragResult && (
+              <div className="animate-in fade-in duration-500">
+                <div className="flex gap-4">
+                  <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-1 shadow-md">
+                    <Database size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <p className="text-sm font-bold text-[#2353a4] mb-1">Indexation Documentaire</p>
+                    <p className="text-xs text-slate-500 mb-4 font-medium">Azure AI Search | Statut: <span className="text-emerald-500 font-bold">Vectorisé</span></p>
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm">
+                      <CheckCircle2 size={18} />
+                      Le document <strong>{ragResult.filename}</strong> a été ingéré et vectorisé avec succès. Le Copilot peut désormais s'y référer.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {!loading && !batchResults && !audioResult && !ragResult && (
+              <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                <Bot size={48} className="mb-3 opacity-30" />
+                <p className="text-sm font-medium">Sélectionnez une tâche à gauche et lancez le traitement.</p>
               </div>
             )}
           </div>
         </main>
 
-        {/* COLONNE DROITE (Chat Copilot Interactif) */}
+        {/* COLONNE DROITE (Chat Copilot) */}
         <aside className="w-[340px] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex shrink-0 overflow-hidden">
           
           <div className="w-12 bg-slate-900/95 flex flex-col items-center py-4 shrink-0 border-r border-slate-800">
@@ -287,14 +365,11 @@ export default function Dashboard() {
   );
 }
 
-function Tab({ label, active, onClick }: any) {
+function Tab({ label, active }: any) {
   return (
-    <div 
-      onClick={onClick}
-      className={`px-5 py-3.5 text-[11px] font-extrabold tracking-widest cursor-pointer border-b-[3px] transition-colors whitespace-nowrap ${
-        active ? 'border-[#f37021] text-slate-900 bg-white/50' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-white/30'
-      }`}
-    >
+    <div className={`px-5 py-3.5 text-[11px] font-extrabold tracking-widest border-b-[3px] whitespace-nowrap ${
+        active ? 'border-[#f37021] text-slate-900 bg-white/50' : 'border-transparent text-slate-500'
+      }`}>
       {label}
     </div>
   );
