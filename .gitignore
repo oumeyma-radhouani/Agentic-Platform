@@ -32,6 +32,9 @@ env/
 # Runtime logs
 *.log
 
+# Runtime uploads created by the Streamlit app
+/temp_*
+
 # OS generated files
 .DS_Store
 Thumbs.db

@@ -1,0 +1,66 @@
+[
+  {
+    "feedback_id": "FBK-TEST-001",
+    "customer_id": "CUST-1001",
+    "source": "Web",
+    "score": 10,
+    "comment": "Excellent service. The support agent solved my issue in less than five minutes.",
+    "language": "EN"
+  },
+  {
+    "feedback_id": "FBK-TEST-002",
+    "customer_id": "CUST-1002",
+    "source": "App",
+    "score": 9,
+    "comment": "L'application est rapide et très facile à utiliser. Je suis très satisfait.",
+    "language": "FR"
+  },
+  {
+    "feedback_id": "FBK-TEST-003",
+    "customer_id": "CUST-1003",
+    "source": "Email",
+    "score": 8,
+    "comment": "The result was good, but I had to wait longer than expected for a reply.",
+    "language": "EN"
+  },
+  {
+    "feedback_id": "FBK-TEST-004",
+    "customer_id": "CUST-1004",
+    "source": "Web",
+    "score": 7,
+    "comment": "Le service fonctionne correctement, mais les instructions pourraient être plus claires.",
+    "language": "FR"
+  },
+  {
+    "feedback_id": "FBK-TEST-005",
+    "customer_id": "CUST-1005",
+    "source": "App",
+    "score": 5,
+    "comment": "The interface looks nice, but the app freezes whenever I upload a document.",
+    "language": "EN"
+  },
+  {
+    "feedback_id": "FBK-TEST-006",
+    "customer_id": "CUST-1006",
+    "source": "Email",
+    "score": 3,
+    "comment": "J'ai contacté le support deux fois et je n'ai toujours pas reçu de solution.",
+    "language": "FR"
+  },
+  {
+    "feedback_id": "FBK-TEST-007",
+    "customer_id": "CUST-1007",
+    "source": "Web",
+    "score": 1,
+    "comment": "Fantastic experience, if waiting three days for a password reset is considered fantastic.",
+    "language": "EN"
+  },
+  {
+    "feedback_id": "FBK-TEST-008",
+    "customer_id": "CUST-1008",
+    "source": "App",
+    "score": 4,
+    "comment": "Le paiement a échoué, la page d'aide ne charge pas et le message d'erreur est incompréhensible.",
+    "language": "FR"
+  }
+]
