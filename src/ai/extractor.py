@@ -1,36 +1,48 @@
+"""Customer-feedback analysis using Azure OpenAI."""
+
+from __future__ import annotations
+
 import json
-from langchain_ollama import ChatOllama
+
+from src.ai.azure_client import create_chat_completion
+
 
 def classify_nps(score: int) -> str:
-    """NPS rules defined in the specs."""
+    """Return the localized NPS category for a score from 0 to 10."""
     if not 0 <= score <= 10:
         raise ValueError("The score must be between 0 and 10.")
     if score >= 9:
         return "promoteur"
     if score >= 7:
         return "neutre"
-    return "détracteur"
+    return "detracteur"
+
 
 def analyze_feedback(client_id: str, score: int, comment: str) -> dict:
-    """Runs the Ollama model on the client data."""
-    # Using the local model Saïd tested
-    llm = ChatOllama(model="qwen3:1.7b", temperature=0, format="json") 
-    
-    prompt = f"""
-    Analyze this customer feedback. Return only valid JSON with these keys:
-    sentiment, main_cause, theme, summary.
-    Do not invent details.
+    """Analyze one customer-feedback record with Azure OpenAI."""
+    response_content = create_chat_completion(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "Analyze customer feedback. Return only a JSON object with "
+                    "the keys sentiment, main_cause, theme, urgency, and summary. "
+                    "Do not invent details."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Score: {score}/10\nComment: {comment}",
+            },
+        ],
+        temperature=0,
+        max_completion_tokens=1024,
+        response_format={"type": "json_object"},
+    )
 
-    Score: {score}/10
-    Comment: {comment}
-    """
-    
-    response = llm.invoke(prompt)
-    
-    result = {
+    return {
         "customer_id": client_id,
         "score": score,
         "nps_category": classify_nps(score),
-        "ai_analysis": json.loads(response.content),
+        "ai_analysis": json.loads(response_content),
     }
-    return result

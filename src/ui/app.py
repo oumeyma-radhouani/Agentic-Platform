@@ -1,8 +1,12 @@
 import streamlit as st
 import time
-import requests
 import datetime
 import json
+from src.ai.azure_client import (
+    chat_with_assistant,
+    get_deployment_name,
+    is_azure_configured,
+)
 from src.backend.aggregator import parse_agent_response
 
 # --- IMPORT SAID'S BACKEND FUNCTION ---
@@ -12,36 +16,6 @@ try:
 except ImportError:
     st.error("Backend Error: Could not import run_batch from src.backend.batch_runner. Ensure you are on the correct branch.")
     def run_batch(data): return {} # Dummy fallback
-
-# --- REAL LOCAL SYSTEM CHECKS ---
-def check_ollama_status():
-    try:
-        response = requests.get("http://localhost:11434/", timeout=2)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
-        return False
-
-def get_installed_models():
-    try:
-        response = requests.get("http://localhost:11434/api/tags", timeout=2)
-        if response.status_code == 200:
-            models = response.json().get("models", [])
-            return [model["name"] for model in models]
-        return []
-    except requests.exceptions.RequestException:
-        return []
-
-# --- MOCK BACKEND (For Live Console) ---
-def mock_langchain_response(user_prompt, model, temp):
-    time.sleep(1.2)  
-    mock_data = {
-        "status": "AGENT_READY",
-        "routed_model": model,
-        "temperature": temp,
-        "task_parsed": user_prompt,
-        "next_action": "Awaiting execution parameters."
-    }
-    return json.dumps(mock_data)
 
 # --- ADVANCED UI CONFIGURATION ---
 st.set_page_config(page_title="NOVA Terminal", layout="wide", initial_sidebar_state="expanded")
@@ -66,8 +40,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-is_ollama_online = check_ollama_status()
-available_models = get_installed_models()
+is_azure_ready = is_azure_configured()
+selected_model = get_deployment_name()
 current_time = datetime.datetime.now().strftime("%H:%M:%S")
 current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
@@ -76,11 +50,9 @@ with st.sidebar:
     st.header("Agentic Node Setup")
     st.divider()
 
-    if available_models:
-        selected_model = st.selectbox("Active Inference Model", available_models)
-    else:
-        st.warning("No models detected. Pulled model is required via Ollama.")
-        selected_model = None
+    st.text_input("Azure Deployment", value=selected_model, disabled=True)
+    if not is_azure_ready:
+        st.warning("Azure OpenAI API key is missing. Add it to the project .env file.")
     
     temperature = st.slider("Generation Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     
@@ -95,7 +67,7 @@ st.markdown(f"""
     <div style="display:flex; align-items:center;">
         <div>
             <h1 style="margin:0; font-size:1.8rem; color:#f0f6fc;">NOVA TERMINAL</h1>
-            <p style="margin:0; color:#8b949e; font-size:0.9rem;">PLATFORM OPERATIONAL LOCALHOST:11434</p>
+            <p style="margin:0; color:#8b949e; font-size:0.9rem;">AZURE OPENAI CONTROL PLANE</p>
         </div>
     </div>
     <div style="text-align:right;">
@@ -107,13 +79,13 @@ st.markdown(f"""
 status_col1, status_col2, status_col3 = st.columns(3)
 with status_col1:
     with st.container(border=True):
-        if is_ollama_online:
-            st.metric(label="System Backend", value="Online", delta="Connected", delta_color="normal")
+        if is_azure_ready:
+            st.metric(label="Azure OpenAI", value="Configured", delta="Ready", delta_color="normal")
         else:
-            st.metric(label="System Backend", value="Offline", delta="Disconnected", delta_color="inverse")
+            st.metric(label="Azure OpenAI", value="Missing Key", delta="Configuration required", delta_color="inverse")
 with status_col2:
     with st.container(border=True):
-        st.metric(label="Model Registry", value=f"{len(available_models)} Models", delta="Idle", delta_color="off")
+        st.metric(label="Deployment", value=selected_model, delta="Azure", delta_color="off")
 with status_col3:
     with st.container(border=True):
         st.metric(label="Telemetry Status", value="Nominal", delta="No Alert", delta_color="off")
@@ -138,7 +110,7 @@ with tab_console:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if is_ollama_online and selected_model:
+    if is_azure_ready:
         if prompt := st.chat_input("Initialize agent task... [Ctrl+Enter]"):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
@@ -146,12 +118,15 @@ with tab_console:
 
             with st.chat_message("assistant"):
                 with st.spinner(f"NOVA Operating..."):
-                    raw_response = mock_langchain_response(prompt, selected_model, temperature)
-                    formatted_response = parse_agent_response(raw_response)
-                    st.markdown(formatted_response)
-            st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+                    try:
+                        raw_response = chat_with_assistant(prompt, temperature=temperature)
+                        formatted_response = parse_agent_response(raw_response)
+                        st.markdown(formatted_response)
+                        st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+                    except Exception as exc:
+                        st.error(f"Azure OpenAI request failed: {exc}")
     else:
-        st.info("System Console is locked. Ensure local Ollama is running.")
+        st.info("System Console is locked. Configure AZURE_OPENAI_API_KEY in .env.")
 
 # --- TAB 2: NEW BATCH ANALYSIS PIPELINE ---
 with tab_batch:
@@ -173,11 +148,11 @@ with tab_batch:
             
             # 2. Run Batch Button
             if st.button("Initialize Batch Run", type="primary", use_container_width=True):
-                if not is_ollama_online:
-                    st.error("Cannot run batch: Ollama is offline.")
+                if not is_azure_ready:
+                    st.error("Cannot run batch: Azure OpenAI is not configured.")
                 else:
                     # 3. Progress Bar Integration
-                    progress_text = "Transmitting payload to local inference engine..."
+                    progress_text = "Transmitting payload to Azure OpenAI..."
                     my_bar = st.progress(0, text=progress_text)
                     
                     # Simulating progress before the blocking backend call
@@ -265,13 +240,16 @@ with tab_audio:
                     st.divider()
                     st.markdown("### AI Agent Analysis")
                     with st.spinner("Analyzing transcript context and sentiment..."):
-                        if is_ollama_online and selected_model:
+                        if is_azure_ready:
                             # Feed the raw transcript directly into the agent
-                            raw_response = mock_langchain_response(f"Analyze this customer feedback transcript: '{transcript}'", selected_model, temperature)
+                            raw_response = chat_with_assistant(
+                                f"Analyze this customer feedback transcript: '{transcript}'",
+                                temperature=temperature,
+                            )
                             formatted_response = parse_agent_response(raw_response)
                             st.markdown(formatted_response)
                         else:
-                            st.warning("Agent analysis skipped: System Backend is offline or no model selected.")
+                            st.warning("Agent analysis skipped: Azure OpenAI is not configured.")
                     
                 except Exception as e:
                     st.error(f"Transcription failed: {e}")
