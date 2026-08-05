@@ -1,6 +1,6 @@
 import unittest
 
-from backend.src.backend.aggregator import (
+from src.backend.aggregator import (
     aggregate_results,
     calculate_summary_metrics,
     classify_nps,

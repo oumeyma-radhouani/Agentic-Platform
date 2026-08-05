@@ -117,7 +117,7 @@ def validate_record(
 
 def _default_analyzer() -> Analyzer:
     # FIXED: Added 'src.' to the import path so Python can find it from the root folder
-    from backend.src.ai.extractor import analyze_feedback
+    from src.ai.extractor import analyze_feedback
 
     return analyze_feedback
 

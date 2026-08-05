@@ -2,8 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from backend.src.ai import azure_client
-from backend.src.ai.extractor import analyze_feedback
+from src.ai import azure_client
+from src.ai.extractor import analyze_feedback
 
 
 class AzureConfigurationTests(unittest.TestCase):

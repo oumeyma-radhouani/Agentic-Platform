@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from backend.src.ai.azure_client import create_chat_completion
+from src.ai.azure_client import create_chat_completion
 
 
 def classify_nps(score: int) -> str:

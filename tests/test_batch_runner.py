@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backend.src.backend.batch_runner import run_batch
+from src.backend.batch_runner import run_batch
 
 
 def fake_analyzer(customer_id, score, comment):

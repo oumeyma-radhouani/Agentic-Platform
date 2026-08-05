@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend.src.ai.azure_client import create_chat_completion, get_deployment_name
+from src.ai.azure_client import create_chat_completion, get_deployment_name
 
 
 def _generate_batch(count: int) -> list[dict]:
