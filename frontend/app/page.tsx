@@ -5,7 +5,7 @@ import {
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
   Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText,
-  Eye, Download, X // NOUVELLES ICÔNES
+  Eye, Download, X 
 } from "lucide-react";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -33,7 +33,6 @@ export default function Dashboard() {
 
   const [analysesHistory, setAnalysesHistory] = useState<AnalysisRecord[]>([]);
   
-  // NOUVEL ÉTAT : Pour gérer l'ouverture de la fenêtre des détails
   const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
 
   const [chatInput, setChatInput] = useState("");
@@ -137,7 +136,6 @@ export default function Dashboard() {
     setIsChatSending(false);
   };
 
-  // NOUVELLE FONCTION : Génère et télécharge le rapport en fichier texte
   const handleDownload = (record: AnalysisRecord) => {
     let content = "";
     if (record.type === "batch") {
@@ -148,14 +146,24 @@ export default function Dashboard() {
       content += `Passifs : ${record.data.summary_metrics.total_passives}\n`;
       content += `Détracteurs : ${record.data.summary_metrics.total_detractors}\n`;
       content += `\nSCORE NPS GLOBAL : ${record.data.summary_metrics.nps_score}\n\n`;
-      content += `[Généré par l'Assistant NOVA]`;
+      
+      if (record.data.strategic_insights) {
+          content += `--- RECOMMANDATIONS STRATÉGIQUES (Générées par l'IA) ---\n`;
+          content += `Sujet de friction principal : ${record.data.strategic_insights.main_subject}\n\n`;
+          record.data.strategic_insights.recommendations.forEach((r: string, idx: number) => {
+              content += `Action ${idx + 1} : ${r}\n`;
+          });
+          content += `\n`;
+      }
+      
+      content += `[Généré par l'Assistant Stratégique NOVA]`;
     } else if (record.type === "audio") {
       content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
       content += `--- CONTENU DE L'ÉCHANGE ---\n`;
       content += `${record.data}\n\n`;
-      content += `[Généré par l'Assistant NOVA]`;
+      content += `[Généré par l'Assistant Stratégique NOVA]`;
     } else {
-      content = `RAPPORT D'ASSIMILATION : DOCUMENT STRATÉGIQUE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : Vectorisé et indexé avec succès.\n[Généré par l'Assistant NOVA]`;
+      content = `RAPPORT D'ASSIMILATION : DOCUMENT STRATÉGIQUE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : Vectorisé et indexé avec succès.\n[Généré par l'Assistant Stratégique NOVA]`;
     }
 
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
@@ -168,7 +176,6 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
-  // Fonction utilitaire pour récupérer le rapport actif à l'écran
   const getActiveRecord = (): AnalysisRecord | null => {
     if (activeTask === "batch" && batchResults) return { id: "current", type: "batch", filename: file?.name || "export", date: "À l'instant", data: batchResults };
     if (activeTask === "audio" && audioResult) return { id: "current", type: "audio", filename: file?.name || "audio", date: "À l'instant", data: audioResult };
@@ -193,11 +200,9 @@ export default function Dashboard() {
       <div className="absolute inset-0 z-0 animate-bg-image bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/background_gradiant.jpg')" }}></div>
       <div className="absolute inset-0 bg-black/30 z-0 pointer-events-none"></div>
 
-      {/* FENÊTRE MODALE DE DÉTAILS (S'affiche si viewingRecord n'est pas null) */}
       {viewingRecord && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
-            {/* Header de la modale */}
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${viewingRecord.type === 'batch' ? 'bg-[#f37021]' : viewingRecord.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
@@ -215,7 +220,6 @@ export default function Dashboard() {
               </button>
             </div>
             
-            {/* Contenu de la modale */}
             <div className="p-6 overflow-y-auto bg-white flex-1 text-sm text-slate-700">
               {viewingRecord.type === 'batch' && (
                 <div className="space-y-4">
@@ -242,6 +246,19 @@ export default function Dashboard() {
                     <span className="font-extrabold text-[#2353a4]">SCORE NPS CALCULÉ</span>
                     <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
                   </div>
+                  
+                  {viewingRecord.data.strategic_insights && (
+                     <div className="mt-6">
+                        <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Insights Macro & Recommandations</p>
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed text-slate-700">
+                                {viewingRecord.data.strategic_insights.recommendations.map((reco: string, i: number) => (
+                                    <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
+                                ))}
+                            </ul>
+                        </div>
+                     </div>
+                  )}
                 </div>
               )}
               {viewingRecord.type === 'audio' && (
@@ -259,7 +276,6 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Footer de la modale */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
               <button onClick={() => setViewingRecord(null)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
                 Fermer
@@ -295,7 +311,6 @@ export default function Dashboard() {
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden z-10">
         
-        {/* COLONNE GAUCHE */}
         <aside className="w-[320px] flex flex-col gap-4 overflow-y-auto shrink-0 pb-4">
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4">
             <div className="flex items-center justify-between mb-6">
@@ -335,7 +350,6 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* COLONNE CENTRALE AVEC LES ONGLETS */}
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
@@ -351,7 +365,6 @@ export default function Dashboard() {
 
           <div className="flex-1 overflow-y-auto p-6 relative">
             
-            {/* VUE 1 : RAPPORT ACTUEL */}
             {activeTab === "RAPPORTS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">SYNTHÈSE STRATÉGIQUE</h3>
@@ -378,21 +391,26 @@ export default function Dashboard() {
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-5 border-b border-slate-100">
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Score NPS</p><p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sentiment Global</p><p className="text-xl font-extrabold text-emerald-600 mt-1">Positif</p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sujet Principal</p><p className="text-sm font-extrabold text-slate-700 mt-2">Qualité Service</p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Risque Attrition</p><p className="text-xl font-extrabold text-amber-500 mt-1">Modéré</p></div>
+                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sentiment Global</p><p className="text-xl font-extrabold text-emerald-600 mt-1">
+                             {batchResults.summary_metrics.nps_score > 20 ? "Positif" : batchResults.summary_metrics.nps_score < 0 ? "Négatif" : "Neutre"}
+                          </p></div>
+                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sujet Principal</p><p className="text-sm font-extrabold text-slate-700 mt-2 line-clamp-1">
+                             {batchResults.strategic_insights?.main_subject || "Général"}
+                          </p></div>
+                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Risque Attrition</p><p className="text-xl font-extrabold text-amber-500 mt-1">
+                             {batchResults.summary_metrics.nps_score < 0 ? "Élevé" : "Modéré"}
+                          </p></div>
                         </div>
 
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
-                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Insights Générés par NOVA :</p>
+                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommandations Stratégiques (IA) :</p>
                            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
-                              <li><strong>Friction détectée :</strong> Une majorité des détracteurs mentionnent des délais d'attente prolongés au service client.</li>
-                              <li><strong>Point fort :</strong> L'ergonomie de l'application mobile est citée positivement par {batchResults.summary_metrics.total_promoters} promoteurs.</li>
-                              <li><strong>Recommandation Stratégique :</strong> Renforcer les effectifs du support sur les plages horaires critiques pour sécuriser le NPS.</li>
+                              {batchResults.strategic_insights?.recommendations?.map((reco: string, i: number) => (
+                                 <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
+                              )) || <li>Les recommandations sont en cours de génération...</li>}
                            </ul>
                         </div>
                         
-                        {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
                         <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                           <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
                             <Eye size={14} /> Aperçu détaillé
@@ -412,9 +430,8 @@ export default function Dashboard() {
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                       <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse de l'Interaction Vocale</p>
                       <p className="text-xs text-slate-500 mb-4 font-medium">Extraction du script et détection des intentions.</p>
-                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4">{audioResult}</div>
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 line-clamp-4">{audioResult}</div>
                       
-                      {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
                           <Eye size={14} /> Aperçu détaillé
@@ -437,7 +454,6 @@ export default function Dashboard() {
                         <Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont maintenant disponibles pour croiser des informations.
                       </div>
                       
-                      {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
                           <Eye size={14} /> Aperçu détaillé
@@ -459,7 +475,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* VUE 2 : HISTORIQUE DES ANALYSES */}
             {activeTab === "HISTORIQUE" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-6">
@@ -500,7 +515,6 @@ export default function Dashboard() {
                             </div>
                           </div>
                           
-                          {/* BOUTONS D'ACTION (Historique) */}
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => setViewingRecord(record)} className="p-2 text-slate-400 hover:text-[#2353a4] hover:bg-blue-50 rounded-lg transition-colors tooltip-trigger" title="Aperçu Détaillé">
                               <Eye size={18} />
@@ -532,7 +546,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* VUE 3 : POWER BI */}
             {activeTab === "DASHBOARDS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
@@ -559,7 +572,6 @@ export default function Dashboard() {
           </div>
         </main>
 
-        {/* COLONNE DROITE (Chat Compact & Décisions) */}
         <aside className="w-[340px] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex shrink-0 overflow-hidden">
           <div className="w-12 bg-slate-900/95 flex flex-col items-center py-4 shrink-0 border-r border-slate-800">
             <div className="w-8 h-8 rounded-lg bg-[#f37021] flex items-center justify-center cursor-pointer relative shadow-md">
