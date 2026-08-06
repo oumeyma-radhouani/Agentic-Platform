@@ -98,6 +98,20 @@ async def chat_endpoint(payload: ChatRequest):
     except Exception as e:
         print(f"Erreur MongoDB/Chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/api/chat/history")
+async def get_history(session_id: str = "admin_dashboard_session"):
+    """Récupère l'historique complet des messages depuis MongoDB."""
+    try:
+        history = get_mongo_history(session_id)
+        formatted_messages = []
+        for msg in history.messages:
+            sender = "user" if msg.type == "human" else "copilot"
+            formatted_messages.append({"sender": sender, "text": msg.content})
+        return {"success": True, "messages": formatted_messages}
+    except Exception as e:
+        print(f"Erreur récupération historique: {e}")
+        return {"success": True, "messages": []}
 
 @app.post("/api/audio")
 async def process_audio(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):

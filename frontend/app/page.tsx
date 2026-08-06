@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
@@ -14,29 +14,45 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("CHRONOLOGIE");
   const [backendStatus, setBackendStatus] = useState("Connexion...");
   
-  // États de l'interface
   const [activeTask, setActiveTask] = useState<"batch" | "audio" | "rag">("batch");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // Résultats des différentes tâches
   const [batchResults, setBatchResults] = useState<any>(null);
   const [audioResult, setAudioResult] = useState<string | null>(null);
   const [ragResult, setRagResult] = useState<any>(null);
 
-  // Chat de l'Assistant
+  // Chat de l'Assistant et référence pour l'auto-scroll
   const [chatInput, setChatInput] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "copilot", text: string }>>([
-    { sender: "copilot", text: "Systèmes nominaux. Je suis NOVA, prêt à vous assister pour vos analyses de données, transcriptions ou requêtes documentaires." }
+    { sender: "copilot", text: "Systèmes nominaux. Je suis NOVA, prêt à vous assister." }
   ]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Charger l'état de l'API et l'historique MongoDB au démarrage
   useEffect(() => {
+    // 1. Check Santé API
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
       .then((data) => setBackendStatus(data.status === "online" ? "Connecté" : "Hors ligne"))
       .catch(() => setBackendStatus("Déconnecté"));
+
+    // 2. Charger l'historique depuis MongoDB
+    fetch(`${API_BASE_URL}/api/chat/history?session_id=${SESSION_ID}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.messages && data.messages.length > 0) {
+          setChatMessages(data.messages);
+        }
+      })
+      .catch((err) => console.error("Impossible de charger l'historique", err));
   }, []);
+
+  // Auto-scroll vers le bas à chaque nouveau message
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isChatSending]);
 
   useEffect(() => {
     setFile(null);
@@ -64,7 +80,7 @@ export default function Dashboard() {
         if (!res.ok) throw new Error("Erreur serveur Audio");
         const data = await res.json();
         setAudioResult(data.transcript);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: "J'ai terminé la transcription de l'audio. Que souhaitez-vous en faire ?" }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: "J'ai terminé la transcription de l'audio." }]);
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", body: formData });
@@ -113,11 +129,19 @@ export default function Dashboard() {
   };
 
   return (
-    <div 
-      className="flex flex-col h-screen w-full font-sans overflow-hidden bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/background_gradiant.jpg')" }}
-    >
-      <div className="absolute inset-0 bg-black/20 z-0 pointer-events-none"></div>
+    <div className="flex flex-col h-screen w-full font-sans overflow-hidden bg-[#02040a] relative">
+      
+      {/* --- ARRIÈRE-PLAN LUMINEUX WAOUH (Inspiré de votre image, en Tailwind pur) --- */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Faisceau lumineux bleu électrique diagonal supérieur */}
+        <div className="absolute -top-[30%] -left-[20%] w-[120vw] h-[120vh] bg-gradient-to-tr from-blue-600/50 via-cyan-400/30 to-transparent rotate-[-20deg] blur-[100px] opacity-90 animate-pulse" style={{ animationDuration: '4s' }}></div>
+        
+        {/* Faisceau lumineux indigo/profond inférieur */}
+        <div className="absolute -bottom-[30%] -right-[20%] w-[120vw] h-[120vh] bg-gradient-to-bl from-blue-900/60 via-indigo-900/50 to-transparent rotate-[20deg] blur-[120px] opacity-90"></div>
+        
+        {/* Voile d'ombrage pour un contraste parfait et pro */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"></div>
+      </div>
       
       {/* HEADER NOVA */}
       <header className="h-14 bg-slate-900/90 backdrop-blur-md flex items-center justify-between px-4 shrink-0 text-white shadow-md z-20 border-b border-white/10">
@@ -321,6 +345,7 @@ export default function Dashboard() {
                <h3 className="font-extrabold text-slate-800 text-sm">NOVA</h3>
             </div>
 
+            {/* Zone des messages avec chargement de l'historique et auto-scroll */}
             <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
                {chatMessages.map((msg, idx) => (
                  <div key={idx} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
@@ -343,6 +368,8 @@ export default function Dashboard() {
                {isChatSending && (
                  <div className="text-[10px] text-slate-400 italic text-left pl-8 animate-pulse">NOVA réfléchit...</div>
                )}
+               {/* Élément invisible pour forcer le défilement vers le bas */}
+               <div ref={chatEndRef} />
             </div>
 
             <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
