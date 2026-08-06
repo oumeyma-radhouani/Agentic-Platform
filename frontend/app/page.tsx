@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
-  Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText
+  Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText,
+  Eye, Download, X // NOUVELLES ICÔNES
 } from "lucide-react";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -31,6 +32,9 @@ export default function Dashboard() {
   const [ragResult, setRagResult] = useState<any>(null);
 
   const [analysesHistory, setAnalysesHistory] = useState<AnalysisRecord[]>([]);
+  
+  // NOUVEL ÉTAT : Pour gérer l'ouverture de la fenêtre des détails
+  const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
 
   const [chatInput, setChatInput] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
@@ -55,7 +59,6 @@ export default function Dashboard() {
       .catch((err) => console.error("Impossible de charger l'historique", err));
   }, []);
 
-  // CORRECTION : block: "nearest" empêche la page globale de sauter lors du scroll du chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chatMessages, isChatSending]);
@@ -134,11 +137,52 @@ export default function Dashboard() {
     setIsChatSending(false);
   };
 
+  // NOUVELLE FONCTION : Génère et télécharge le rapport en fichier texte
+  const handleDownload = (record: AnalysisRecord) => {
+    let content = "";
+    if (record.type === "batch") {
+      content = `RAPPORT STRATÉGIQUE : VOIX DU CLIENT\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
+      content += `--- MÉTRIQUES CLÉS ---\n`;
+      content += `Total des retours traités : ${record.data.summary_metrics.total_processed}\n`;
+      content += `Promoteurs : ${record.data.summary_metrics.total_promoters}\n`;
+      content += `Passifs : ${record.data.summary_metrics.total_passives}\n`;
+      content += `Détracteurs : ${record.data.summary_metrics.total_detractors}\n`;
+      content += `\nSCORE NPS GLOBAL : ${record.data.summary_metrics.nps_score}\n\n`;
+      content += `[Généré par l'Assistant NOVA]`;
+    } else if (record.type === "audio") {
+      content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
+      content += `--- CONTENU DE L'ÉCHANGE ---\n`;
+      content += `${record.data}\n\n`;
+      content += `[Généré par l'Assistant NOVA]`;
+    } else {
+      content = `RAPPORT D'ASSIMILATION : DOCUMENT STRATÉGIQUE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : Vectorisé et indexé avec succès.\n[Généré par l'Assistant NOVA]`;
+    }
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `NOVA_Rapport_${record.type}_${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Fonction utilitaire pour récupérer le rapport actif à l'écran
+  const getActiveRecord = (): AnalysisRecord | null => {
+    if (activeTask === "batch" && batchResults) return { id: "current", type: "batch", filename: file?.name || "export", date: "À l'instant", data: batchResults };
+    if (activeTask === "audio" && audioResult) return { id: "current", type: "audio", filename: file?.name || "audio", date: "À l'instant", data: audioResult };
+    if (activeTask === "rag" && ragResult) return { id: "current", type: "rag", filename: file?.name || "document", date: "À l'instant", data: ragResult };
+    return null;
+  };
+
   const taskConfig = {
     batch: { accept: ".json,.jsonl,.csv", icon: <Users size={14} />, label: "Exports CRM (Retours Clients)" },
     audio: { accept: ".wav,.mp3", icon: <Phone size={14} />, label: "Enregistrements d'appels" },
     rag: { accept: ".pdf,.txt,.docx", icon: <Target size={14} />, label: "Documents Stratégiques" }
   };
+
+  const activeRecord = getActiveRecord();
 
   return (
     <div className="flex flex-col h-screen w-full font-sans overflow-hidden relative bg-[#020617]">
@@ -148,6 +192,85 @@ export default function Dashboard() {
       `}} />
       <div className="absolute inset-0 z-0 animate-bg-image bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/background_gradiant.jpg')" }}></div>
       <div className="absolute inset-0 bg-black/30 z-0 pointer-events-none"></div>
+
+      {/* FENÊTRE MODALE DE DÉTAILS (S'affiche si viewingRecord n'est pas null) */}
+      {viewingRecord && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
+            {/* Header de la modale */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${viewingRecord.type === 'batch' ? 'bg-[#f37021]' : viewingRecord.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
+                  {viewingRecord.type === 'batch' && <TrendingUp size={14} />}
+                  {viewingRecord.type === 'audio' && <Mic size={14} />}
+                  {viewingRecord.type === 'rag' && <Database size={14} />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Aperçu Détaillé du Rapport</h3>
+                  <p className="text-[10px] text-slate-500 font-medium">Source : {viewingRecord.filename} • {viewingRecord.date}</p>
+                </div>
+              </div>
+              <button onClick={() => setViewingRecord(null)} className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            
+            {/* Contenu de la modale */}
+            <div className="p-6 overflow-y-auto bg-white flex-1 text-sm text-slate-700">
+              {viewingRecord.type === 'batch' && (
+                <div className="space-y-4">
+                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Données Quantitatives Exactes</p>
+                  <ul className="space-y-3">
+                    <li className="flex justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      <span className="font-semibold text-slate-600">Total retours analysés</span>
+                      <span className="font-bold">{viewingRecord.data.summary_metrics.total_processed}</span>
+                    </li>
+                    <li className="flex justify-between bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                      <span className="font-semibold text-emerald-800">Promoteurs identifiés</span>
+                      <span className="font-bold text-emerald-600">{viewingRecord.data.summary_metrics.total_promoters}</span>
+                    </li>
+                    <li className="flex justify-between bg-amber-50 p-3 rounded-lg border border-amber-100">
+                      <span className="font-semibold text-amber-800">Passifs identifiés</span>
+                      <span className="font-bold text-amber-600">{viewingRecord.data.summary_metrics.total_passives}</span>
+                    </li>
+                    <li className="flex justify-between bg-rose-50 p-3 rounded-lg border border-rose-100">
+                      <span className="font-semibold text-rose-800">Détracteurs identifiés</span>
+                      <span className="font-bold text-rose-600">{viewingRecord.data.summary_metrics.total_detractors}</span>
+                    </li>
+                  </ul>
+                  <div className="mt-6 bg-[#2353a4]/5 p-4 rounded-xl border border-[#2353a4]/20 flex items-center justify-between">
+                    <span className="font-extrabold text-[#2353a4]">SCORE NPS CALCULÉ</span>
+                    <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
+                  </div>
+                </div>
+              )}
+              {viewingRecord.type === 'audio' && (
+                <div className="space-y-4">
+                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Retranscription intégrale</p>
+                  <p className="leading-relaxed whitespace-pre-wrap font-medium">{viewingRecord.data}</p>
+                </div>
+              )}
+              {viewingRecord.type === 'rag' && (
+                <div className="flex flex-col items-center justify-center py-8 text-emerald-600">
+                  <Database size={48} className="mb-4 opacity-50" />
+                  <p className="font-bold text-lg">Document vectorisé avec succès</p>
+                  <p className="text-slate-500 text-sm mt-2 text-center max-w-md">L'ensemble du document a été découpé et inséré dans la mémoire sémantique. L'Assistant Stratégique y a désormais pleinement accès.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer de la modale */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setViewingRecord(null)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
+                Fermer
+              </button>
+              <button onClick={() => handleDownload(viewingRecord)} className="px-4 py-2 text-sm font-bold text-white bg-[#2353a4] rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-md">
+                <Download size={16} /> Télécharger (.txt)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="h-14 bg-slate-900/90 backdrop-blur-md flex items-center justify-between px-4 shrink-0 text-white shadow-md z-20 border-b border-white/10">
         <div className="flex items-center gap-4">
@@ -212,7 +335,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* COLONNE CENTRALE */}
+        {/* COLONNE CENTRALE AVEC LES ONGLETS */}
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
@@ -228,6 +351,7 @@ export default function Dashboard() {
 
           <div className="flex-1 overflow-y-auto p-6 relative">
             
+            {/* VUE 1 : RAPPORT ACTUEL */}
             {activeTab === "RAPPORTS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">SYNTHÈSE STRATÉGIQUE</h3>
@@ -239,7 +363,7 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {!loading && activeTask === "batch" && batchResults && (
+                {!loading && activeTask === "batch" && batchResults && activeRecord && (
                   <div className="flex flex-col gap-4">
                     <div className="flex gap-4 items-start">
                       <div className="w-9 h-9 rounded-full bg-[#f37021] flex items-center justify-center shrink-0 mt-1 shadow-md"><TrendingUp size={18} className="text-white" /></div>
@@ -259,7 +383,7 @@ export default function Dashboard() {
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Risque Attrition</p><p className="text-xl font-extrabold text-amber-500 mt-1">Modéré</p></div>
                         </div>
 
-                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700">
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
                            <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Insights Générés par NOVA :</p>
                            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
                               <li><strong>Friction détectée :</strong> Une majorité des détracteurs mentionnent des délais d'attente prolongés au service client.</li>
@@ -267,30 +391,60 @@ export default function Dashboard() {
                               <li><strong>Recommandation Stratégique :</strong> Renforcer les effectifs du support sur les plages horaires critiques pour sécuriser le NPS.</li>
                            </ul>
                         </div>
+                        
+                        {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
+                        <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
+                          <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
+                            <Eye size={14} /> Aperçu détaillé
+                          </button>
+                          <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
+                            <Download size={14} /> Exporter (.txt)
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {!loading && activeTask === "audio" && audioResult && (
+                {!loading && activeTask === "audio" && audioResult && activeRecord && (
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-[#2353a4] flex items-center justify-center shrink-0 mt-1 shadow-md"><Mic size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                       <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse de l'Interaction Vocale</p>
                       <p className="text-xs text-slate-500 mb-4 font-medium">Extraction du script et détection des intentions.</p>
-                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{audioResult}</div>
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4">{audioResult}</div>
+                      
+                      {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
+                      <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
+                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
+                          <Eye size={14} /> Aperçu détaillé
+                        </button>
+                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
+                          <Download size={14} /> Exporter (.txt)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {!loading && activeTask === "rag" && ragResult && (
+                {!loading && activeTask === "rag" && ragResult && activeRecord && (
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-1 shadow-md"><Database size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                       <p className="text-sm font-bold text-[#2353a4] mb-1">Assimilation Stratégique</p>
                       <p className="text-xs text-slate-500 mb-4 font-medium">Le document a été converti en base de connaissances décisionnelle.</p>
-                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4">
                         <Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont maintenant disponibles pour croiser des informations.
+                      </div>
+                      
+                      {/* BOUTONS D'ACTION POUR LE RAPPORT ACTUEL */}
+                      <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
+                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
+                          <Eye size={14} /> Aperçu détaillé
+                        </button>
+                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
+                          <Download size={14} /> Exporter (.txt)
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -305,6 +459,7 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* VUE 2 : HISTORIQUE DES ANALYSES */}
             {activeTab === "HISTORIQUE" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-6">
@@ -322,29 +477,41 @@ export default function Dashboard() {
                 ) : (
                   <div className="flex flex-col gap-4 overflow-y-auto">
                     {analysesHistory.map((record) => (
-                      <div key={record.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={record.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group">
                         <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${record.type === 'batch' ? 'bg-[#f37021]' : record.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
-                              {record.type === 'batch' && <TrendingUp size={14} />}
-                              {record.type === 'audio' && <Mic size={14} />}
-                              {record.type === 'rag' && <Database size={14} />}
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm ${record.type === 'batch' ? 'bg-[#f37021]' : record.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
+                              {record.type === 'batch' && <TrendingUp size={16} />}
+                              {record.type === 'audio' && <Mic size={16} />}
+                              {record.type === 'rag' && <Database size={16} />}
                             </div>
                             <div>
-                              <p className="text-sm font-bold text-slate-800">
-                                {record.type === 'batch' && 'Voix du Client'}
+                              <p className="text-sm font-bold text-[#2353a4]">
+                                {record.type === 'batch' && 'Voix du Client (Analyse NPS)'}
                                 {record.type === 'audio' && 'Interaction Vocale'}
                                 {record.type === 'rag' && 'Assimilation Documentaire'}
                               </p>
-                              <p className="text-[10px] text-slate-500 font-medium">Fichier: {record.filename}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
+                                  <Clock size={10} /> {record.date}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">Source: {record.filename}</span>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-semibold flex items-center gap-1">
-                            <Clock size={12} /> {record.date}
+                          
+                          {/* BOUTONS D'ACTION (Historique) */}
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setViewingRecord(record)} className="p-2 text-slate-400 hover:text-[#2353a4] hover:bg-blue-50 rounded-lg transition-colors tooltip-trigger" title="Aperçu Détaillé">
+                              <Eye size={18} />
+                            </button>
+                            <button onClick={() => handleDownload(record)} className="p-2 text-slate-400 hover:text-[#f37021] hover:bg-orange-50 rounded-lg transition-colors tooltip-trigger" title="Télécharger">
+                              <Download size={18} />
+                            </button>
                           </div>
                         </div>
                         
-                        <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 border border-slate-100">
+                        <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 border border-slate-100 mt-2">
                           {record.type === 'batch' && (
                             <div className="flex gap-6">
                               <span><strong>Retours traités:</strong> {record.data.summary_metrics.total_processed}</span>
@@ -352,7 +519,7 @@ export default function Dashboard() {
                             </div>
                           )}
                           {record.type === 'audio' && (
-                            <p className="line-clamp-2 italic">"{record.data}"</p>
+                            <p className="line-clamp-1 italic">"{record.data}"</p>
                           )}
                           {record.type === 'rag' && (
                             <p className="text-emerald-700 font-medium">Indexation réussie. Le document est prêt pour l'Assistant Stratégique.</p>
@@ -365,6 +532,7 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* VUE 3 : POWER BI */}
             {activeTab === "DASHBOARDS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
