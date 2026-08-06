@@ -5,6 +5,10 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement (le fichier .env)
+load_dotenv()
 
 # === IMPORTS DE VOTRE LOGIQUE EXISTANTE ===
 from src.backend.batch_runner import run_batch
@@ -23,15 +27,16 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: str = "admin_dashboard_session"
+    session_id: str = "executive_dashboard_session"
 
 def get_mongo_history(session_id: str):
     """Fonction utilitaire pour récupérer l'historique MongoDB de la session"""
+    # Va chercher la clé MONGO_URI dans votre fichier .env
     mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     return MongoDBChatMessageHistory(
         session_id=session_id,
         connection_string=mongo_uri,
-        database_name="nova_db", # Base de données renommée au nom du produit
+        database_name="nova_db", 
         collection_name="chat_histories"
     )
 
@@ -40,7 +45,7 @@ def health_check():
     return {"status": "online", "azure_ready": is_azure_configured()}
 
 @app.post("/api/batch")
-async def process_batch(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
+async def process_batch(file: UploadFile = File(...), session_id: str = Form("executive_dashboard_session")):
     try:
         content = await file.read()
         filename = file.filename or ""
@@ -51,14 +56,21 @@ async def process_batch(file: UploadFile = File(...), session_id: str = Form("ad
         else:
             batch_data = json.loads(content.decode('utf-8'))
             
+        # Appel à notre nouveau moteur avec intelligence stratégique
         results = run_batch(batch_data)
         
         # SAUVEGARDE DANS LA MÉMOIRE MONGODB
         history = get_mongo_history(session_id)
-        history.add_ai_message(f"[Système] L'analyse du lot est terminée. J'ai traité {results['summary_metrics']['total_processed']} retours avec un NPS global de {results['summary_metrics']['nps_score']}.")
+        
+        # Extraction sécurisée des données pour éviter l'erreur 500
+        total = results.get('summary_metrics', {}).get('total_processed', 0)
+        nps = results.get('summary_metrics', {}).get('nps_score', 0)
+        
+        history.add_ai_message(f"[Système] L'analyse stratégique est terminée. J'ai examiné {total} retours (Score NPS : {nps}) et généré des recommandations d'aide à la décision.")
         
         return {"success": True, "data": results}
     except Exception as e:
+        print(f"Erreur API Batch: {e}") 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat")
@@ -100,7 +112,7 @@ async def chat_endpoint(payload: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/api/chat/history")
-async def get_history(session_id: str = "admin_dashboard_session"):
+async def get_history(session_id: str = "executive_dashboard_session"):
     """Récupère l'historique complet des messages depuis MongoDB."""
     try:
         history = get_mongo_history(session_id)
@@ -114,7 +126,7 @@ async def get_history(session_id: str = "admin_dashboard_session"):
         return {"success": True, "messages": []}
 
 @app.post("/api/audio")
-async def process_audio(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
+async def process_audio(file: UploadFile = File(...), session_id: str = Form("executive_dashboard_session")):
     """Reçoit un fichier audio, le transcrit avec Whisper et sauvegarde dans MongoDB."""
     try:
         from src.backend.audio import transcribe_audio
@@ -128,9 +140,8 @@ async def process_audio(file: UploadFile = File(...), session_id: str = Form("ad
         try:
             transcript = transcribe_audio(tmp_path)
             
-            # SAUVEGARDE DANS LA MÉMOIRE MONGODB
             history = get_mongo_history(session_id)
-            history.add_ai_message(f"[Système] J'ai transcrit le fichier audio {file.filename}. Voici le contenu : {transcript}")
+            history.add_ai_message(f"[Système] J'ai analysé l'interaction vocale ({file.filename}). La retranscription est disponible dans l'onglet des rapports.")
             
             return {"success": True, "transcript": transcript}
         finally:
@@ -141,7 +152,7 @@ async def process_audio(file: UploadFile = File(...), session_id: str = Form("ad
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rag")
-async def process_rag(file: UploadFile = File(...), session_id: str = Form("admin_dashboard_session")):
+async def process_rag(file: UploadFile = File(...), session_id: str = Form("executive_dashboard_session")):
     """Reçoit un document PDF/TXT pour l'indexation RAG et sauvegarde dans MongoDB."""
     try:
         from src.backend.azure_rag import process_and_vectorize
@@ -155,10 +166,9 @@ async def process_rag(file: UploadFile = File(...), session_id: str = Form("admi
         try:
             success = process_and_vectorize(tmp_path, file.filename or "doc")
             
-            # SAUVEGARDE DANS LA MÉMOIRE MONGODB
             if success:
                 history = get_mongo_history(session_id)
-                history.add_ai_message(f"[Système] J'ai indexé et vectorisé le document {file.filename} dans la base de connaissances.")
+                history.add_ai_message(f"[Système] J'ai assimilé les données du document stratégique ({file.filename}).")
                 
             return {"success": success, "filename": file.filename}
         finally:

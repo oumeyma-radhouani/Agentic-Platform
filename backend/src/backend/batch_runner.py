@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,14 +16,11 @@ from src.backend.aggregator import aggregate_results, classify_nps
 Analyzer = Callable[[str, int, str], Mapping[str, Any]]
 ProgressCallback = Callable[[int, int], None]
 
-
 class RecordValidationError(ValueError):
     """Raised when one feedback record does not satisfy the input contract."""
 
-
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
 
 def _read_source(source: str | Path | TextIO | Sequence[Mapping[str, Any]]) -> tuple[list[Any], str]:
     if isinstance(source, Sequence) and not isinstance(source, (str, bytes, bytearray)):
@@ -64,14 +62,12 @@ def _read_source(source: str | Path | TextIO | Sequence[Mapping[str, Any]]) -> t
         return [payload], source_name
     raise ValueError("The JSON source must contain an object, a list, or a 'records' list.")
 
-
 def validate_record(
     raw_record: Any,
     *,
     record_index: int,
     seen_feedback_ids: set[str],
 ) -> dict[str, Any]:
-    """Normalize one source record and enforce deterministic business rules."""
     if not isinstance(raw_record, Mapping):
         raise RecordValidationError("The record must be a JSON object.")
 
@@ -114,13 +110,9 @@ def validate_record(
         "record_index": record_index,
     }
 
-
 def _default_analyzer() -> Analyzer:
-    # FIXED: Added 'src.' to the import path so Python can find it from the root folder
     from src.ai.extractor import analyze_feedback
-
     return analyze_feedback
-
 
 def _analyze_with_retries(
     analyzer: Analyzer,
@@ -134,11 +126,10 @@ def _analyze_with_retries(
             if not isinstance(result, Mapping):
                 raise TypeError("The analyzer must return a mapping.")
             return result
-        except Exception as exc:  # The batch must isolate individual AI failures.
+        except Exception as exc:
             last_error = exc
     assert last_error is not None
     raise last_error
-
 
 def _to_processed_record(
     record: Mapping[str, Any],
@@ -149,8 +140,8 @@ def _to_processed_record(
     if not isinstance(ai_analysis, Mapping):
         raise TypeError("The analyzer's ai_analysis field must be a mapping.")
 
-    assigned_theme = analysis.get("assigned_theme", ai_analysis.get("theme", "Unclassified"))
-    assigned_urgency = analysis.get("assigned_urgency", ai_analysis.get("urgency", "Unassigned"))
+    assigned_theme = analysis.get("assigned_theme", ai_analysis.get("theme", "Non classifié"))
+    assigned_urgency = analysis.get("assigned_urgency", ai_analysis.get("urgency", "Non assigné"))
     rag_verified = analysis.get("rag_verified", ai_analysis.get("rag_verified", False))
 
     return {
@@ -163,12 +154,45 @@ def _to_processed_record(
         "assigned_theme": str(assigned_theme),
         "rag_verified": bool(rag_verified),
         "sentiment": ai_analysis.get("sentiment"),
-        "main_cause": ai_analysis.get("main_cause"),
+        "main_cause": ai_analysis.get("main_cause", assigned_theme),
         "summary": ai_analysis.get("summary"),
         "processing_time_ms": processing_time_ms,
         "status": "success",
     }
 
+def _generate_macro_insights(processed_records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Génère des insights décisionnels basés sur l'agrégation des analyses de l'IA."""
+    detractor_causes = Counter()
+    promoter_causes = Counter()
+
+    for rec in processed_records:
+        cause = rec.get("main_cause") or rec.get("assigned_theme") or "Problème non spécifié"
+        if rec["nps_category"] == "Detractor":
+            detractor_causes[cause] += 1
+        elif rec["nps_category"] == "Promoter":
+            promoter_causes[cause] += 1
+
+    top_frictions = [{"theme": k, "count": v} for k, v in detractor_causes.most_common(3)]
+    top_strengths = [{"theme": k, "count": v} for k, v in promoter_causes.most_common(3)]
+
+    # Génération des recommandations dynamiques
+    recos = []
+    if top_frictions:
+        recos.append(f"Alerte Prioritaire : '{top_frictions[0]['theme']}' est la cause majeure d'insatisfaction identifiée sur ce lot.")
+    if len(top_frictions) > 1:
+        recos.append(f"Optimisation : Sécuriser l'expérience client autour de '{top_frictions[1]['theme']}' pour réduire le risque d'attrition.")
+    if top_strengths:
+        recos.append(f"Levier de Fidélisation : Capitaliser sur '{top_strengths[0]['theme']}', identifié comme votre atout majeur par les promoteurs.")
+    
+    if not recos:
+        recos.append("L'analyse ne dégage pas de tendance critique. Maintenir le suivi régulier.")
+
+    return {
+        "top_frictions": top_frictions,
+        "top_strengths": top_strengths,
+        "recommendations": recos,
+        "main_subject": top_frictions[0]["theme"] if top_frictions else (top_strengths[0]["theme"] if top_strengths else "Général")
+    }
 
 def run_batch(
     source: str | Path | TextIO | Sequence[Mapping[str, Any]],
@@ -178,7 +202,6 @@ def run_batch(
     max_retries: int = 1,
     top_theme_limit: int | None = 5,
 ) -> dict[str, Any]:
-    """Validate and analyze a batch while isolating failures per record."""
     if max_retries < 0:
         raise ValueError("max_retries cannot be negative.")
 
@@ -221,7 +244,13 @@ def run_batch(
                 progress_callback(index, total)
 
     batch_completed = _utc_now()
+    
+    # Agrégation classique
     output = aggregate_results(processed_records, top_theme_limit=top_theme_limit)
+    
+    # --- C'EST CETTE LIGNE QUI MANQUAIT AU FRONTEND ---
+    output["strategic_insights"] = _generate_macro_insights(processed_records)
+    
     output["errors"] = errors
     output["run_info"] = {
         "batch_id": batch_id,
