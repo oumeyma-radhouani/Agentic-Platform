@@ -1,0 +1,704 @@
+{
+    "records": [
+        {
+            "feedback_id": "FB-098DD108",
+            "customer_id": "CUST-7276",
+            "score": 10,
+            "comment": "Très satisfait des performances des nouveaux serveurs cloud.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-08-10T00:10:23.205852",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 138855,
+                "temps_resolution_heures": 6
+            }
+        },
+        {
+            "feedback_id": "FB-1D35BD23",
+            "customer_id": "CUST-7439",
+            "score": 8,
+            "comment": "L'installation s'est bien passée, on attend de voir sur le long terme.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-26T00:10:23.205895",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 10246,
+                "temps_resolution_heures": 10
+            }
+        },
+        {
+            "feedback_id": "FB-F8DBBC3A",
+            "customer_id": "CUST-5300",
+            "score": 9,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-13T00:10:23.205907",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 20192,
+                "temps_resolution_heures": 33
+            }
+        },
+        {
+            "feedback_id": "FB-679F4D19",
+            "customer_id": "CUST-3128",
+            "score": 9,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-31T00:10:23.205916",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 91569,
+                "temps_resolution_heures": 70
+            }
+        },
+        {
+            "feedback_id": "FB-B63C52F4",
+            "customer_id": "CUST-5515",
+            "score": 4,
+            "comment": "Impossible de joindre le service commercial pour ajouter des licences.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-16T00:10:23.205925",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 61314,
+                "temps_resolution_heures": 12
+            }
+        },
+        {
+            "feedback_id": "FB-6D92F3F1",
+            "customer_id": "CUST-1625",
+            "score": 4,
+            "comment": "Plusieurs coupures sur le service de backup cette semaine. C'est critique pour nous.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-08-06T00:10:23.205933",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 11177,
+                "temps_resolution_heures": 21
+            }
+        },
+        {
+            "feedback_id": "FB-DC905C34",
+            "customer_id": "CUST-5110",
+            "score": 1,
+            "comment": "Le technicien ne semblait pas maîtriser notre environnement hybride.",
+            "source": "Support Ticket",
+            "created_at": "2026-08-01T00:10:23.205944",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 52920,
+                "temps_resolution_heures": 60
+            }
+        },
+        {
+            "feedback_id": "FB-12605B7A",
+            "customer_id": "CUST-9448",
+            "score": 10,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-22T00:10:23.205952",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 108567,
+                "temps_resolution_heures": 37
+            }
+        },
+        {
+            "feedback_id": "FB-F3A904CA",
+            "customer_id": "CUST-7804",
+            "score": 10,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-08-08T00:10:23.205959",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 138927,
+                "temps_resolution_heures": 9
+            }
+        },
+        {
+            "feedback_id": "FB-A6F84417",
+            "customer_id": "CUST-6074",
+            "score": 9,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-25T00:10:23.205967",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 48868,
+                "temps_resolution_heures": 2
+            }
+        },
+        {
+            "feedback_id": "FB-6E8FB952",
+            "customer_id": "CUST-9273",
+            "score": 10,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-29T00:10:23.205975",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 137837,
+                "temps_resolution_heures": 72
+            }
+        },
+        {
+            "feedback_id": "FB-46B526A6",
+            "customer_id": "CUST-4621",
+            "score": 10,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-28T00:10:23.205984",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 72397,
+                "temps_resolution_heures": 15
+            }
+        },
+        {
+            "feedback_id": "FB-488B9162",
+            "customer_id": "CUST-1237",
+            "score": 9,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-08-01T00:10:23.205992",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 67415,
+                "temps_resolution_heures": 65
+            }
+        },
+        {
+            "feedback_id": "FB-FAE975E8",
+            "customer_id": "CUST-5461",
+            "score": 6,
+            "comment": "Plusieurs coupures sur le service de backup cette semaine. C'est critique pour nous.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-22T00:10:23.205999",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 84491,
+                "temps_resolution_heures": 51
+            }
+        },
+        {
+            "feedback_id": "FB-73683232",
+            "customer_id": "CUST-9391",
+            "score": 9,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-31T00:10:23.206007",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 148682,
+                "temps_resolution_heures": 39
+            }
+        },
+        {
+            "feedback_id": "FB-103F45E2",
+            "customer_id": "CUST-4483",
+            "score": 10,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-14T00:10:23.206014",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 49590,
+                "temps_resolution_heures": 52
+            }
+        },
+        {
+            "feedback_id": "FB-13D004C6",
+            "customer_id": "CUST-1453",
+            "score": 10,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-26T00:10:23.206021",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 49958,
+                "temps_resolution_heures": 50
+            }
+        },
+        {
+            "feedback_id": "FB-E38E2B47",
+            "customer_id": "CUST-6869",
+            "score": 5,
+            "comment": "Le technicien ne semblait pas maîtriser notre environnement hybride.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-20T00:10:23.206293",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 15137,
+                "temps_resolution_heures": 33
+            }
+        },
+        {
+            "feedback_id": "FB-60A62D93",
+            "customer_id": "CUST-7218",
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement s'est fait sans coupure.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-15T00:10:23.206308",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 114391,
+                "temps_resolution_heures": 3
+            }
+        },
+        {
+            "feedback_id": "FB-74383117",
+            "customer_id": "CUST-3036",
+            "score": 10,
+            "comment": "Très satisfait des performances des nouveaux serveurs cloud.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-30T00:10:23.206319",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 28838,
+                "temps_resolution_heures": 71
+            }
+        },
+        {
+            "feedback_id": "FB-BD4F38FF",
+            "customer_id": "CUST-6733",
+            "score": 5,
+            "comment": "Le technicien ne semblait pas maîtriser notre environnement hybride.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-30T00:10:23.206329",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 12020,
+                "temps_resolution_heures": 41
+            }
+        },
+        {
+            "feedback_id": "FB-BFEE4D4E",
+            "customer_id": "CUST-1430",
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement s'est fait sans coupure.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-22T00:10:23.206337",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 61583,
+                "temps_resolution_heures": 42
+            }
+        },
+        {
+            "feedback_id": "FB-41A7495E",
+            "customer_id": "CUST-2762",
+            "score": 6,
+            "comment": "La facture a augmenté de 15% sans aucune explication préalable. Inadmissible.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-27T00:10:23.206345",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 82078,
+                "temps_resolution_heures": 19
+            }
+        },
+        {
+            "feedback_id": "FB-E41D0608",
+            "customer_id": "CUST-9490",
+            "score": 9,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-25T00:10:23.206354",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 108465,
+                "temps_resolution_heures": 5
+            }
+        },
+        {
+            "feedback_id": "FB-19EB4FB8",
+            "customer_id": "CUST-2874",
+            "score": 9,
+            "comment": "L'équipe technique a été très réactive. Le déploiement s'est fait sans coupure.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-12T00:10:23.206363",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 58004,
+                "temps_resolution_heures": 32
+            }
+        },
+        {
+            "feedback_id": "FB-53F504CD",
+            "customer_id": "CUST-4504",
+            "score": 10,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-21T00:10:23.206370",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 66163,
+                "temps_resolution_heures": 32
+            }
+        },
+        {
+            "feedback_id": "FB-88ED9254",
+            "customer_id": "CUST-6150",
+            "score": 9,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-08-04T00:10:23.206380",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 18148,
+                "temps_resolution_heures": 34
+            }
+        },
+        {
+            "feedback_id": "FB-6561C969",
+            "customer_id": "CUST-9104",
+            "score": 9,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-08-03T00:10:23.206389",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 7605,
+                "temps_resolution_heures": 29
+            }
+        },
+        {
+            "feedback_id": "FB-7E754F1C",
+            "customer_id": "CUST-1601",
+            "score": 9,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-29T00:10:23.206397",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 111706,
+                "temps_resolution_heures": 72
+            }
+        },
+        {
+            "feedback_id": "FB-D43830C0",
+            "customer_id": "CUST-5791",
+            "score": 9,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-13T00:10:23.206405",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 21791,
+                "temps_resolution_heures": 14
+            }
+        },
+        {
+            "feedback_id": "FB-BA5DDF04",
+            "customer_id": "CUST-3375",
+            "score": 8,
+            "comment": "L'installation s'est bien passée, on attend de voir sur le long terme.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-25T00:10:23.206417",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 37778,
+                "temps_resolution_heures": 17
+            }
+        },
+        {
+            "feedback_id": "FB-AF5C6140",
+            "customer_id": "CUST-8774",
+            "score": 5,
+            "comment": "Plusieurs coupures sur le service de backup cette semaine. C'est critique pour nous.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-17T00:10:23.206424",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 64115,
+                "temps_resolution_heures": 23
+            }
+        },
+        {
+            "feedback_id": "FB-FC2CDD5A",
+            "customer_id": "CUST-5347",
+            "score": 9,
+            "comment": "L'équipe technique a été très réactive. Le déploiement s'est fait sans coupure.",
+            "source": "Support Ticket",
+            "created_at": "2026-08-09T00:10:23.206432",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 62216,
+                "temps_resolution_heures": 25
+            }
+        },
+        {
+            "feedback_id": "FB-380A023D",
+            "customer_id": "CUST-7015",
+            "score": 7,
+            "comment": "Rien à signaler pour le moment, ça fonctionne.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-24T00:10:23.206441",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 119935,
+                "temps_resolution_heures": 13
+            }
+        },
+        {
+            "feedback_id": "FB-08DFC2BE",
+            "customer_id": "CUST-9925",
+            "score": 10,
+            "comment": "Très satisfait des performances des nouveaux serveurs cloud.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-24T00:10:23.206449",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 118868,
+                "temps_resolution_heures": 5
+            }
+        },
+        {
+            "feedback_id": "FB-3E426AC1",
+            "customer_id": "CUST-7263",
+            "score": 7,
+            "comment": "Service correct, mais les tarifs restent élevés.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-18T00:10:23.206456",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 125589,
+                "temps_resolution_heures": 11
+            }
+        },
+        {
+            "feedback_id": "FB-71D98D8B",
+            "customer_id": "CUST-9960",
+            "score": 9,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-30T00:10:23.206463",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 65326,
+                "temps_resolution_heures": 14
+            }
+        },
+        {
+            "feedback_id": "FB-45EF0274",
+            "customer_id": "CUST-5988",
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement s'est fait sans coupure.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-27T00:10:23.206471",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 87881,
+                "temps_resolution_heures": 16
+            }
+        },
+        {
+            "feedback_id": "FB-94D52A15",
+            "customer_id": "CUST-4927",
+            "score": 10,
+            "comment": "La nouvelle interface du dashboard est beaucoup plus intuitive.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-23T00:10:23.206478",
+            "metadata": {
+                "segment_client": "Secteur Public",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 95566,
+                "temps_resolution_heures": 4
+            }
+        },
+        {
+            "feedback_id": "FB-6552AAAF",
+            "customer_id": "CUST-6430",
+            "score": 5,
+            "comment": "Le technicien ne semblait pas maîtriser notre environnement hybride.",
+            "source": "Support Ticket",
+            "created_at": "2026-08-08T00:10:23.206486",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 137332,
+                "temps_resolution_heures": 16
+            }
+        },
+        {
+            "feedback_id": "FB-FBC7AD46",
+            "customer_id": "CUST-5275",
+            "score": 2,
+            "comment": "Plusieurs coupures sur le service de backup cette semaine. C'est critique pour nous.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-24T00:10:23.206494",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 18101,
+                "temps_resolution_heures": 33
+            }
+        },
+        {
+            "feedback_id": "FB-B3AF124A",
+            "customer_id": "CUST-1713",
+            "score": 6,
+            "comment": "Temps d'attente interminable au support téléphonique ce matin.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-08-06T00:10:23.206502",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 73882,
+                "temps_resolution_heures": 28
+            }
+        },
+        {
+            "feedback_id": "FB-2BD7F811",
+            "customer_id": "CUST-2258",
+            "score": 10,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-20T00:10:23.206510",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "CyberSecurity Suite",
+                "valeur_annuelle_client_eur": 28780,
+                "temps_resolution_heures": 53
+            }
+        },
+        {
+            "feedback_id": "FB-5FF88C11",
+            "customer_id": "CUST-4292",
+            "score": 7,
+            "comment": "Service correct, mais les tarifs restent élevés.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-22T00:10:23.206517",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 36168,
+                "temps_resolution_heures": 47
+            }
+        },
+        {
+            "feedback_id": "FB-5F984CD5",
+            "customer_id": "CUST-3055",
+            "score": 8,
+            "comment": "Service correct, mais les tarifs restent élevés.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-08-04T00:10:23.206524",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 21201,
+                "temps_resolution_heures": 51
+            }
+        },
+        {
+            "feedback_id": "FB-9555A989",
+            "customer_id": "CUST-8185",
+            "score": 9,
+            "comment": "Très satisfait des performances des nouveaux serveurs cloud.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-08-03T00:10:23.206532",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 141376,
+                "temps_resolution_heures": 8
+            }
+        },
+        {
+            "feedback_id": "FB-F815DA81",
+            "customer_id": "CUST-5131",
+            "score": 9,
+            "comment": "Problème résolu en moins de 2h, service impeccable comme toujours.",
+            "source": "Campagne Appel Q3",
+            "created_at": "2026-07-27T00:10:23.206540",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "Data Backup",
+                "valeur_annuelle_client_eur": 48097,
+                "temps_resolution_heures": 15
+            }
+        },
+        {
+            "feedback_id": "FB-26F0AF47",
+            "customer_id": "CUST-9975",
+            "score": 5,
+            "comment": "La facture a augmenté de 15% sans aucune explication préalable. Inadmissible.",
+            "source": "Appel de Rétention",
+            "created_at": "2026-07-23T00:10:23.206548",
+            "metadata": {
+                "segment_client": "Startup",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 143946,
+                "temps_resolution_heures": 32
+            }
+        },
+        {
+            "feedback_id": "FB-461A87F4",
+            "customer_id": "CUST-9403",
+            "score": 10,
+            "comment": "Très satisfait des performances des nouveaux serveurs cloud.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-30T00:10:23.206556",
+            "metadata": {
+                "segment_client": "PME",
+                "produit_concerne": "Cloud Infrastructure",
+                "valeur_annuelle_client_eur": 123231,
+                "temps_resolution_heures": 35
+            }
+        },
+        {
+            "feedback_id": "FB-5E065213",
+            "customer_id": "CUST-1826",
+            "score": 2,
+            "comment": "La facture a augmenté de 15% sans aucune explication préalable. Inadmissible.",
+            "source": "Support Ticket",
+            "created_at": "2026-07-14T00:10:23.206563",
+            "metadata": {
+                "segment_client": "Grand Compte VIP",
+                "produit_concerne": "SaaS ERP",
+                "valeur_annuelle_client_eur": 97748,
+                "temps_resolution_heures": 27
+            }
+        }
+    ]
+}

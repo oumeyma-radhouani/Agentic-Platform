@@ -161,37 +161,96 @@ def _to_processed_record(
     }
 
 def _generate_macro_insights(processed_records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Génère des insights décisionnels basés sur l'agrégation des analyses de l'IA."""
+    """Génère des insights BI orientés Décisionnel, ROI et Risque."""
+    from collections import Counter
+    
     detractor_causes = Counter()
     promoter_causes = Counter()
-
+    product_issues = Counter()
+    segment_stats = {}
+    
+    urgency_critical = 0
+    revenue_at_risk = 0
+    total_time_detractors = 0
+    count_detractors_with_time = 0
+    
+    # 1. AGRÉGATION DES DONNÉES CROISÉES (Feedback + SI)
     for rec in processed_records:
-        cause = rec.get("main_cause") or rec.get("assigned_theme") or "Problème non spécifié"
+        cause = rec.get("main_cause") or rec.get("assigned_theme") or "Général"
+        meta = rec.get("metadata", {})
+        
+        # Extraction des données SI
+        valeur = meta.get("valeur_annuelle_client_eur", 0)
+        produit = meta.get("produit_concerne", "Inconnu")
+        segment = meta.get("segment_client", "Inconnu")
+        resolution_time = meta.get("temps_resolution_heures", 0)
+
+        # Initialisation du segment pour le calcul croisé
+        if segment not in segment_stats:
+            segment_stats[segment] = {"total": 0, "promoters": 0, "detractors": 0}
+        segment_stats[segment]["total"] += 1
+
+        if rec.get("assigned_urgency") in ["Haute", "Critique"]:
+            urgency_critical += 1
+            
         if rec["nps_category"] == "Detractor":
             detractor_causes[cause] += 1
+            revenue_at_risk += valeur # Calcul du CA Menacé
+            product_issues[produit] += 1
+            segment_stats[segment]["detractors"] += 1
+            if resolution_time > 0:
+                total_time_detractors += resolution_time
+                count_detractors_with_time += 1
         elif rec["nps_category"] == "Promoter":
             promoter_causes[cause] += 1
+            segment_stats[segment]["promoters"] += 1
 
+    # 2. CALCULS DES KPIS DÉCISIONNELS
     top_frictions = [{"theme": k, "count": v} for k, v in detractor_causes.most_common(3)]
-    top_strengths = [{"theme": k, "count": v} for k, v in promoter_causes.most_common(3)]
-
-    # Génération des recommandations dynamiques
-    recos = []
-    if top_frictions:
-        recos.append(f"Alerte Prioritaire : '{top_frictions[0]['theme']}' est la cause majeure d'insatisfaction identifiée sur ce lot.")
-    if len(top_frictions) > 1:
-        recos.append(f"Optimisation : Sécuriser l'expérience client autour de '{top_frictions[1]['theme']}' pour réduire le risque d'attrition.")
-    if top_strengths:
-        recos.append(f"Levier de Fidélisation : Capitaliser sur '{top_strengths[0]['theme']}', identifié comme votre atout majeur par les promoteurs.")
+    top_products = [{"produit": k, "count": v} for k, v in product_issues.most_common(2)]
     
+    # Calcul du temps de résolution moyen pour les insatisfaits
+    avg_time_detractors = round(total_time_detractors / count_detractors_with_time) if count_detractors_with_time > 0 else 0
+
+    # Calcul du Pire Segment (NPS par segment)
+    segment_analysis = []
+    for seg, data in segment_stats.items():
+        if data["total"] > 0:
+            score = round(((data["promoters"] - data["detractors"]) / data["total"]) * 100)
+            segment_analysis.append({"segment": seg, "nps": score, "total": data["total"]})
+    segment_analysis = sorted(segment_analysis, key=lambda x: x["nps"]) # Trie du pire au meilleur
+
+    worst_segment = segment_analysis[0] if segment_analysis else None
+
+    # 3. GÉNÉRATION DES DIRECTIVES (Data-Driven)
+    recos = []
+    
+    if revenue_at_risk > 0:
+        recos.append(f"Impact Financier : {revenue_at_risk:,} € de chiffre d'affaires annuel sont directement menacés par les détracteurs actuels. Une action de rétention est requise.")
+        
+    if top_products:
+        recos.append(f"Alerte Produit : Le produit '{top_products[0]['produit']}' concentre le plus haut taux d'insatisfaction sur ce lot. Il est recommandé de prioriser un audit de cette offre.")
+        
+    if worst_segment and worst_segment["nps"] < 0:
+        recos.append(f"Risque Segment : Le segment '{worst_segment['segment']}' affiche un score NPS critique de {worst_segment['nps']}. Ajuster la stratégie de communication pour cette cible.")
+        
+    if avg_time_detractors > 24:
+        recos.append(f"Friction Opérationnelle (SLA) : Le temps de résolution moyen pour les détracteurs est de {avg_time_detractors}h. L'optimisation des process de support est un levier direct de CSAT.")
+
     if not recos:
-        recos.append("L'analyse ne dégage pas de tendance critique. Maintenir le suivi régulier.")
+        recos.append("L'analyse croisée ne révèle pas de dégradation des KPIs métiers. Maintenir la stratégie actuelle.")
 
     return {
         "top_frictions": top_frictions,
-        "top_strengths": top_strengths,
         "recommendations": recos,
-        "main_subject": top_frictions[0]["theme"] if top_frictions else (top_strengths[0]["theme"] if top_strengths else "Général")
+        "critical_cases": urgency_critical,
+        "bi_metrics": {
+            "revenue_at_risk_eur": revenue_at_risk,
+            "avg_resolution_time_detractors_h": avg_time_detractors,
+            "worst_segment": worst_segment["segment"] if worst_segment else "N/A",
+            "worst_segment_nps": worst_segment["nps"] if worst_segment else 0,
+            "top_product_issue": top_products[0]["produit"] if top_products else "N/A"
+        }
     }
 
 def run_batch(

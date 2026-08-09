@@ -42,7 +42,24 @@ export default function Dashboard() {
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // 1. CHARGEMENT DES DONNÉES SAUVEGARDÉES (Au lancement)
   useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem('nova_analysesHistory');
+      if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
+      
+      const savedBatch = localStorage.getItem('nova_batchResults');
+      if (savedBatch) setBatchResults(JSON.parse(savedBatch));
+      
+      const savedAudio = localStorage.getItem('nova_audioResult');
+      if (savedAudio) setAudioResult(JSON.parse(savedAudio));
+      
+      const savedRag = localStorage.getItem('nova_ragResult');
+      if (savedRag) setRagResult(JSON.parse(savedRag));
+    } catch (e) {
+      console.error("Erreur lors de la lecture du cache:", e);
+    }
+
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
       .then((data) => setBackendStatus(data.status === "online" ? "Opérationnel" : "Hors ligne"))
@@ -58,6 +75,26 @@ export default function Dashboard() {
       .catch((err) => console.error("Impossible de charger l'historique", err));
   }, []);
 
+  // 2. SAUVEGARDE AUTOMATIQUE (À chaque modification)
+  useEffect(() => {
+    if (batchResults) localStorage.setItem('nova_batchResults', JSON.stringify(batchResults));
+  }, [batchResults]);
+
+  useEffect(() => {
+    if (audioResult) localStorage.setItem('nova_audioResult', JSON.stringify(audioResult));
+  }, [audioResult]);
+
+  useEffect(() => {
+    if (ragResult) localStorage.setItem('nova_ragResult', JSON.stringify(ragResult));
+  }, [ragResult]);
+
+  useEffect(() => {
+    if (analysesHistory.length > 0) {
+      localStorage.setItem('nova_analysesHistory', JSON.stringify(analysesHistory));
+    }
+  }, [analysesHistory]);
+
+  // Autoscroll du chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chatMessages, isChatSending]);
@@ -148,8 +185,13 @@ export default function Dashboard() {
       content += `\nSCORE NPS GLOBAL : ${record.data.summary_metrics.nps_score}\n\n`;
       
       if (record.data.strategic_insights) {
-          content += `--- RECOMMANDATIONS STRATÉGIQUES (Générées par l'IA) ---\n`;
-          content += `Sujet de friction principal : ${record.data.strategic_insights.main_subject}\n\n`;
+          content += `--- INSIGHTS DÉCISIONNELS (BI) ---\n`;
+          content += `CA Menacé (Churn) : ${record.data.strategic_insights.bi_metrics?.revenue_at_risk_eur || 0} €\n`;
+          content += `Segment Critique : ${record.data.strategic_insights.bi_metrics?.worst_segment || "N/A"} (NPS: ${record.data.strategic_insights.bi_metrics?.worst_segment_nps || 0})\n`;
+          content += `Friction Produit Majeure : ${record.data.strategic_insights.bi_metrics?.top_product_issue || "N/A"}\n`;
+          content += `Temps moy. résolution (détracteurs) : ${record.data.strategic_insights.bi_metrics?.avg_resolution_time_detractors_h || 0}h\n\n`;
+          
+          content += `--- RECOMMANDATIONS D'ACTIONS ---\n`;
           record.data.strategic_insights.recommendations.forEach((r: string, idx: number) => {
               content += `Action ${idx + 1} : ${r}\n`;
           });
@@ -242,9 +284,16 @@ export default function Dashboard() {
                       <span className="font-bold text-rose-600">{viewingRecord.data.summary_metrics.total_detractors}</span>
                     </li>
                   </ul>
-                  <div className="mt-6 bg-[#2353a4]/5 p-4 rounded-xl border border-[#2353a4]/20 flex items-center justify-between">
-                    <span className="font-extrabold text-[#2353a4]">SCORE NPS CALCULÉ</span>
-                    <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
+                  
+                  <div className="mt-6 bg-[#2353a4]/5 p-4 rounded-xl border border-[#2353a4]/20 grid grid-cols-2 gap-4">
+                    <div className="flex flex-col justify-center">
+                      <span className="font-extrabold text-[#2353a4] text-xs mb-1">SCORE NPS CALCULÉ</span>
+                      <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
+                    </div>
+                    <div className="flex flex-col justify-center border-l border-[#2353a4]/20 pl-4">
+                      <span className="font-extrabold text-rose-600 text-xs mb-1">CA MENACÉ (CHURN)</span>
+                      <span className="text-2xl font-black text-rose-600">{viewingRecord.data.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €</span>
+                    </div>
                   </div>
                   
                   {viewingRecord.data.strategic_insights && (
@@ -389,17 +438,43 @@ export default function Dashboard() {
                           <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">Analyse Complétée</span>
                         </div>
                         
+                        {/* --- NOUVELLE GRILLE BI ORIENTED --- */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-5 border-b border-slate-100">
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Score NPS</p><p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sentiment Global</p><p className="text-xl font-extrabold text-emerald-600 mt-1">
-                             {batchResults.summary_metrics.nps_score > 20 ? "Positif" : batchResults.summary_metrics.nps_score < 0 ? "Négatif" : "Neutre"}
-                          </p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Sujet Principal</p><p className="text-sm font-extrabold text-slate-700 mt-2 line-clamp-1">
-                             {batchResults.strategic_insights?.main_subject || "Général"}
-                          </p></div>
-                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100"><p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Risque Attrition</p><p className="text-xl font-extrabold text-amber-500 mt-1">
-                             {batchResults.summary_metrics.nps_score < 0 ? "Élevé" : "Modéré"}
-                          </p></div>
+                          {/* 1. SCORE NPS (Indicateur Macro) */}
+                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Score NPS Global</p>
+                            <p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p>
+                          </div>
+
+                          {/* 2. IMPACT FINANCIER (CA Menacé) */}
+                          <div className="bg-rose-50/30 p-3 rounded-lg text-center border border-rose-100 shadow-sm">
+                            <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">CA Menacé (Churn)</p>
+                            <p className="text-xl font-extrabold text-rose-600 mt-1">
+                              {batchResults.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €
+                            </p>
+                          </div>
+
+                          {/* 3. SEGMENT CRITIQUE (Analyse croisée) */}
+                          <div className="bg-amber-50/30 p-3 rounded-lg text-center border border-amber-100 shadow-sm">
+                            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Segment à Risque</p>
+                            <p className="text-sm font-extrabold text-slate-700 mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.worst_segment}>
+                              {batchResults.strategic_insights?.bi_metrics?.worst_segment || "En attente"}
+                            </p>
+                            <p className="text-[9px] text-rose-500 font-bold mt-1">
+                              NPS du segment : {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}
+                            </p>
+                          </div>
+
+                          {/* 4. POINT DE FRICTION PRODUIT & SLA */}
+                          <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Friction Produit</p>
+                            <p className="text-sm font-extrabold text-[#f37021] mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.top_product_issue}>
+                              {batchResults.strategic_insights?.bi_metrics?.top_product_issue || "En attente"}
+                            </p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">
+                              Temps de résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h
+                            </p>
+                          </div>
                         </div>
 
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
