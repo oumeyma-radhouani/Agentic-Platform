@@ -5,7 +5,7 @@ import {
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
   Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText,
-  Eye, Download, X 
+  Eye, Download, X, AlertTriangle, Euro
 } from "lucide-react";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -32,7 +32,6 @@ export default function Dashboard() {
   const [ragResult, setRagResult] = useState<any>(null);
 
   const [analysesHistory, setAnalysesHistory] = useState<AnalysisRecord[]>([]);
-  
   const [viewingRecord, setViewingRecord] = useState<AnalysisRecord | null>(null);
 
   const [chatInput, setChatInput] = useState("");
@@ -42,7 +41,6 @@ export default function Dashboard() {
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. CHARGEMENT DES DONNÉES SAUVEGARDÉES (Au lancement)
   useEffect(() => {
     try {
       const savedHistory = localStorage.getItem('nova_analysesHistory');
@@ -75,7 +73,6 @@ export default function Dashboard() {
       .catch((err) => console.error("Impossible de charger l'historique", err));
   }, []);
 
-  // 2. SAUVEGARDE AUTOMATIQUE (À chaque modification)
   useEffect(() => {
     if (batchResults) localStorage.setItem('nova_batchResults', JSON.stringify(batchResults));
   }, [batchResults]);
@@ -94,7 +91,6 @@ export default function Dashboard() {
     }
   }, [analysesHistory]);
 
-  // Autoscroll du chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chatMessages, isChatSending]);
@@ -123,7 +119,7 @@ export default function Dashboard() {
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `J'ai terminé l'analyse sémantique des ${data.data.summary_metrics.total_processed} retours clients. J'ai dégagé plusieurs tendances clés. Souhaitez-vous que je vous détaille les leviers d'amélioration ?` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `J'ai terminé l'analyse sémantique des ${data.data.summary_metrics.total_processed} retours clients. L'analyse détaillée est prête.` }]);
       
       } else if (activeTask === "audio") {
         const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", body: formData });
@@ -132,7 +128,7 @@ export default function Dashboard() {
         
         setAudioResult(data.transcript);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data: data.transcript }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: "L'analyse de l'interaction vocale est terminée. Je peux en extraire le ton, les points de friction et générer une synthèse pour le manager." }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: "L'analyse de l'interaction vocale est terminée." }]);
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", body: formData });
@@ -141,7 +137,7 @@ export default function Dashboard() {
         
         setRagResult(data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "rag", filename: file.name, date: currentDate, data: data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document stratégique "${data.filename}" a été assimilé. Vous pouvez désormais m'interroger sur son contenu pour vos prises de décision.` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document stratégique "${data.filename}" a été assimilé.` }]);
       }
     } catch (error: any) {
       console.error(error);
@@ -197,7 +193,6 @@ export default function Dashboard() {
           });
           content += `\n`;
       }
-      
       content += `[Généré par l'Assistant Stratégique NOVA]`;
     } else if (record.type === "audio") {
       content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
@@ -402,17 +397,17 @@ export default function Dashboard() {
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
-              <Tab label="RAPPORT ACTUEL" active={activeTab === "RAPPORTS"} />
-            </button>
-            <button onClick={() => setActiveTab("HISTORIQUE")} className="outline-none">
-              <Tab label="HISTORIQUE" active={activeTab === "HISTORIQUE"} />
+              <Tab label="RAPPORT CLASSIQUE" active={activeTab === "RAPPORTS"} />
             </button>
             <button onClick={() => setActiveTab("DASHBOARDS")} className="outline-none">
               <Tab label="TABLEAUX DE BORD" active={activeTab === "DASHBOARDS"} />
             </button>
+            <button onClick={() => setActiveTab("HISTORIQUE")} className="outline-none">
+              <Tab label="HISTORIQUE" active={activeTab === "HISTORIQUE"} />
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 relative">
+          <div className="flex-1 overflow-y-auto p-6 relative bg-slate-50/30">
             
             {activeTab === "RAPPORTS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -438,42 +433,30 @@ export default function Dashboard() {
                           <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">Analyse Complétée</span>
                         </div>
                         
-                        {/* --- NOUVELLE GRILLE BI ORIENTED --- */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-5 border-b border-slate-100">
-                          {/* 1. SCORE NPS (Indicateur Macro) */}
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Score NPS Global</p>
                             <p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p>
                           </div>
-
-                          {/* 2. IMPACT FINANCIER (CA Menacé) */}
                           <div className="bg-rose-50/30 p-3 rounded-lg text-center border border-rose-100 shadow-sm">
                             <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">CA Menacé (Churn)</p>
                             <p className="text-xl font-extrabold text-rose-600 mt-1">
                               {batchResults.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €
                             </p>
                           </div>
-
-                          {/* 3. SEGMENT CRITIQUE (Analyse croisée) */}
                           <div className="bg-amber-50/30 p-3 rounded-lg text-center border border-amber-100 shadow-sm">
                             <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Segment à Risque</p>
                             <p className="text-sm font-extrabold text-slate-700 mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.worst_segment}>
                               {batchResults.strategic_insights?.bi_metrics?.worst_segment || "En attente"}
                             </p>
-                            <p className="text-[9px] text-rose-500 font-bold mt-1">
-                              NPS du segment : {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}
-                            </p>
+                            <p className="text-[9px] text-rose-500 font-bold mt-1">NPS: {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}</p>
                           </div>
-
-                          {/* 4. POINT DE FRICTION PRODUIT & SLA */}
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Friction Produit</p>
                             <p className="text-sm font-extrabold text-[#f37021] mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.top_product_issue}>
                               {batchResults.strategic_insights?.bi_metrics?.top_product_issue || "En attente"}
                             </p>
-                            <p className="text-[9px] text-slate-500 font-bold mt-1">
-                              Temps de résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h
-                            </p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">Résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h</p>
                           </div>
                         </div>
 
@@ -506,14 +489,9 @@ export default function Dashboard() {
                       <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse de l'Interaction Vocale</p>
                       <p className="text-xs text-slate-500 mb-4 font-medium">Extraction du script et détection des intentions.</p>
                       <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 line-clamp-4">{audioResult}</div>
-                      
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
-                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
-                          <Eye size={14} /> Aperçu détaillé
-                        </button>
-                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                          <Download size={14} /> Exporter (.txt)
-                        </button>
+                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
+                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm"><Download size={14} /> Exporter (.txt)</button>
                       </div>
                     </div>
                   </div>
@@ -525,17 +503,10 @@ export default function Dashboard() {
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                       <p className="text-sm font-bold text-[#2353a4] mb-1">Assimilation Stratégique</p>
                       <p className="text-xs text-slate-500 mb-4 font-medium">Le document a été converti en base de connaissances décisionnelle.</p>
-                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4">
-                        <Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont maintenant disponibles pour croiser des informations.
-                      </div>
-                      
+                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4"><Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont prêtes.</div>
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
-                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
-                          <Eye size={14} /> Aperçu détaillé
-                        </button>
-                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                          <Download size={14} /> Exporter (.txt)
-                        </button>
+                        <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
+                        <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm"><Download size={14} /> Exporter (.txt)</button>
                       </div>
                     </div>
                   </div>
@@ -547,6 +518,30 @@ export default function Dashboard() {
                     <p className="text-sm font-medium">Connectez une source de données pour générer des recommandations.</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ====== RETOUR DU DASHBOARD POWER BI ====== */}
+            {activeTab === "DASHBOARDS" && (
+              <div className="flex flex-col h-full animate-in fade-in duration-300">
+                <div className="flex items-center justify-between mb-4">
+                   <h3 className="text-sm font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
+                     <BarChart3 size={16} className="text-[#2353a4]"/> VISION MACRO & KPIS STRATÉGIQUES (POWER BI)
+                   </h3>
+                   <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded">Intégration Microsoft</span>
+                </div>
+                
+                <div className="flex-1 w-full bg-slate-100 rounded-xl border border-slate-200 overflow-hidden relative shadow-inner">
+                  <iframe 
+                    title="Dashboard_Strategique_CloudShift" 
+                    width="100%" 
+                    height="100%" 
+                    src="https://app.powerbi.com/reportEmbed?reportId=VOTRE_ID_DE_RAPPORT&autoAuth=true&ctid=VOTRE_TENANT_ID" 
+                    frameBorder="0" 
+                    allowFullScreen={true}
+                    className="absolute inset-0"
+                  ></iframe>
+                </div>
               </div>
             )}
 
@@ -618,29 +613,6 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {activeTab === "DASHBOARDS" && (
-              <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <div className="flex items-center justify-between mb-4">
-                   <h3 className="text-sm font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
-                     <BarChart3 size={16} className="text-[#2353a4]"/> VISION MACRO & KPIS STRATÉGIQUES
-                   </h3>
-                   <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded">Intégration Microsoft Power BI</span>
-                </div>
-                
-                <div className="flex-1 w-full bg-slate-100 rounded-xl border border-slate-200 overflow-hidden relative shadow-inner">
-                  <iframe 
-                    title="Dashboard_Strategique" 
-                    width="100%" 
-                    height="100%" 
-                    src="https://app.powerbi.com/reportEmbed?reportId=VOTRE_ID_DE_RAPPORT&autoAuth=true&ctid=VOTRE_TENANT_ID" 
-                    frameBorder="0" 
-                    allowFullScreen={true}
-                    className="absolute inset-0"
-                  ></iframe>
-                </div>
               </div>
             )}
             
