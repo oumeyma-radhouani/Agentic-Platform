@@ -1,20 +1,26 @@
 [
   {
-    "id": "FB-001", 
-    "customer_id": "CUST-99", 
-    "score": 9, 
-    "comment": "UI is incredibly fast and responsive."
+    "feedback_id": "FBK-TEST-001",
+    "customer_id": "CUST-1001",
+    "source": "Web",
+    "score": 10,
+    "comment": "Excellent service. The support agent solved my issue in less than five minutes.",
+    "language": "EN"
   },
   {
-    "id": "FB-002", 
-    "customer_id": "CUST-12", 
-    "score": 3, 
-    "comment": "App crashed on launch."
+    "feedback_id": "FBK-TEST-002",
+    "customer_id": "CUST-1002",
+    "source": "Web",
+    "score": 3,
+    "comment": "The application crashed twice while I was uploading my document.",
+    "language": "EN"
   },
   {
-    "id": "FB-003", 
-    "customer_id": "CUST-45", 
-    "score": 8, 
-    "comment": "Looks great, the dark mode is awesome."
+    "feedback_id": "FBK-TEST-003",
+    "customer_id": "CUST-1003",
+    "source": "Support",
+    "score": 7,
+    "comment": "The answer was useful, but I waited two days for a response.",
+    "language": "EN"
   }
 ]

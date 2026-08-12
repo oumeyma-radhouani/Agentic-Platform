@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Sequence
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 DEFAULT_ENDPOINT = "https://novaso.openai.azure.com/"
 DEFAULT_DEPLOYMENT = "gpt-4.1-mini"

@@ -10,6 +10,9 @@ import {
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 const SESSION_ID = "executive_dashboard_session"; 
+const POWER_BI_EMBED_URL = process.env.NEXT_PUBLIC_POWER_BI_EMBED_URL || "";
+
+type ModuleReadiness = Record<string, { ready: boolean; reason?: string | null; index_type?: string }>;
 
 type AnalysisRecord = {
   id: string;
@@ -23,12 +26,13 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"RAPPORTS" | "HISTORIQUE" | "DASHBOARDS">("RAPPORTS");
   
   const [backendStatus, setBackendStatus] = useState("Connexion...");
+  const [moduleReadiness, setModuleReadiness] = useState<ModuleReadiness>({});
   const [activeTask, setActiveTask] = useState<"batch" | "audio" | "rag">("batch");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   
   const [batchResults, setBatchResults] = useState<any>(null);
-  const [audioResult, setAudioResult] = useState<string | null>(null);
+  const [audioResult, setAudioResult] = useState<any>(null);
   const [ragResult, setRagResult] = useState<any>(null);
 
   const [analysesHistory, setAnalysesHistory] = useState<AnalysisRecord[]>([]);
@@ -37,7 +41,7 @@ export default function Dashboard() {
   const [chatInput, setChatInput] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "copilot", text: string }>>([
-    { sender: "copilot", text: "Bonjour. Je suis NOVA. Je suis prêt à analyser vos données et formuler des recommandations stratégiques." }
+    { sender: "copilot", text: "Bonjour. Je suis NOVA. Je peux vous aider à comprendre la qualité, les métriques et les enrichissements de vos données." }
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -46,11 +50,14 @@ export default function Dashboard() {
       const savedHistory = localStorage.getItem('nova_analysesHistory');
       if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
       
-      const savedBatch = localStorage.getItem('nova_batchResults');
+      const savedBatch = localStorage.getItem('nova_batchResultsSummary');
       if (savedBatch) setBatchResults(JSON.parse(savedBatch));
       
       const savedAudio = localStorage.getItem('nova_audioResult');
-      if (savedAudio) setAudioResult(JSON.parse(savedAudio));
+      if (savedAudio) {
+        const parsedAudio = JSON.parse(savedAudio);
+        setAudioResult(typeof parsedAudio === "string" ? { transcript: parsedAudio, provider: "legacy", deployment: "unknown" } : parsedAudio);
+      }
       
       const savedRag = localStorage.getItem('nova_ragResult');
       if (savedRag) setRagResult(JSON.parse(savedRag));
@@ -60,7 +67,11 @@ export default function Dashboard() {
 
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
-      .then((data) => setBackendStatus(data.status === "online" ? "Opérationnel" : "Hors ligne"))
+      .then((data) => {
+        setModuleReadiness(data.modules || {});
+        const modelReady = data.modules?.batch_enrichment?.ready;
+        setBackendStatus(data.status === "online" ? (modelReady ? "Opérationnel" : "API seule") : "Hors ligne");
+      })
       .catch(() => setBackendStatus("Déconnecté"));
 
     fetch(`${API_BASE_URL}/api/chat/history?session_id=${SESSION_ID}`)
@@ -74,7 +85,17 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (batchResults) localStorage.setItem('nova_batchResults', JSON.stringify(batchResults));
+    if (batchResults) {
+      const summaryOnly = {
+        ...batchResults,
+        normalized_records: [],
+        enriched_records: [],
+        processed_records: [],
+        errors: (batchResults.errors || []).slice(0, 20),
+        records_omitted_from_browser_cache: true,
+      };
+      localStorage.setItem('nova_batchResultsSummary', JSON.stringify(summaryOnly));
+    }
   }, [batchResults]);
 
   useEffect(() => {
@@ -87,7 +108,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (analysesHistory.length > 0) {
-      localStorage.setItem('nova_analysesHistory', JSON.stringify(analysesHistory));
+      const compactHistory = analysesHistory.map((record) => record.type === "batch" ? {
+        ...record,
+        data: {
+          ...record.data,
+          normalized_records: [],
+          enriched_records: [],
+          processed_records: [],
+          review_queue: (record.data.review_queue || []).slice(0, 20),
+          errors: (record.data.errors || []).slice(0, 20),
+          records_omitted_from_browser_cache: true,
+        }
+      } : record);
+      localStorage.setItem('nova_analysesHistory', JSON.stringify(compactHistory));
     }
   }, [analysesHistory]);
 
@@ -114,30 +147,39 @@ export default function Dashboard() {
 
       if (activeTask === "batch") {
         const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.detail || "Erreur serveur");
+        }
         const data = await res.json();
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `J'ai terminé l'analyse sémantique des ${data.data.summary_metrics.total_processed} retours clients. L'analyse détaillée est prête.` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement ${data.data.run_info.status} : ${data.data.data_quality.total_valid} lignes valides, ${data.data.data_quality.enrichment_succeeded} enrichies et ${data.data.data_quality.predictions_review_required} à revoir.` }]);
       
       } else if (activeTask === "audio") {
         const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.detail || "Erreur serveur");
+        }
         const data = await res.json();
         
-        setAudioResult(data.transcript);
-        setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data: data.transcript }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: "L'analyse de l'interaction vocale est terminée." }]);
+        setAudioResult(data);
+        setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data }, ...prev]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Transcription terminée via le déploiement ${data.deployment}.` }]);
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.detail || "Erreur serveur");
+        }
         const data = await res.json();
         
         setRagResult(data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "rag", filename: file.name, date: currentDate, data: data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document stratégique "${data.filename}" a été assimilé.` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document "${data.filename}" a été indexé en ${data.chunk_count} segments consultables par l'assistant.` }]);
       }
     } catch (error: any) {
       console.error(error);
@@ -171,43 +213,38 @@ export default function Dashboard() {
 
   const handleDownload = (record: AnalysisRecord) => {
     let content = "";
+    let mimeType = "text/plain;charset=utf-8";
+    let extension = "txt";
     if (record.type === "batch") {
-      content = `RAPPORT STRATÉGIQUE : VOIX DU CLIENT\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
-      content += `--- MÉTRIQUES CLÉS ---\n`;
-      content += `Total des retours traités : ${record.data.summary_metrics.total_processed}\n`;
-      content += `Promoteurs : ${record.data.summary_metrics.total_promoters}\n`;
-      content += `Passifs : ${record.data.summary_metrics.total_passives}\n`;
-      content += `Détracteurs : ${record.data.summary_metrics.total_detractors}\n`;
-      content += `\nSCORE NPS GLOBAL : ${record.data.summary_metrics.nps_score}\n\n`;
-      
-      if (record.data.strategic_insights) {
-          content += `--- INSIGHTS DÉCISIONNELS (BI) ---\n`;
-          content += `CA Menacé (Churn) : ${record.data.strategic_insights.bi_metrics?.revenue_at_risk_eur || 0} €\n`;
-          content += `Segment Critique : ${record.data.strategic_insights.bi_metrics?.worst_segment || "N/A"} (NPS: ${record.data.strategic_insights.bi_metrics?.worst_segment_nps || 0})\n`;
-          content += `Friction Produit Majeure : ${record.data.strategic_insights.bi_metrics?.top_product_issue || "N/A"}\n`;
-          content += `Temps moy. résolution (détracteurs) : ${record.data.strategic_insights.bi_metrics?.avg_resolution_time_detractors_h || 0}h\n\n`;
-          
-          content += `--- RECOMMANDATIONS D'ACTIONS ---\n`;
-          record.data.strategic_insights.recommendations.forEach((r: string, idx: number) => {
-              content += `Action ${idx + 1} : ${r}\n`;
-          });
-          content += `\n`;
-      }
-      content += `[Généré par l'Assistant Stratégique NOVA]`;
+      content = JSON.stringify({
+        dataset_manifest: record.data.dataset_manifest,
+        data_quality: record.data.data_quality,
+        summary_metrics: record.data.summary_metrics,
+        normalized_records: record.data.normalized_records,
+        enriched_records: record.data.enriched_records,
+        review_queue: record.data.review_queue,
+        rejected_records: record.data.rejected_records,
+        evidence_insights: record.data.evidence_insights,
+        errors: record.data.errors,
+        run_info: record.data.run_info,
+      }, null, 2);
+      mimeType = "application/json;charset=utf-8";
+      extension = "json";
     } else if (record.type === "audio") {
       content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
       content += `--- CONTENU DE L'ÉCHANGE ---\n`;
-      content += `${record.data}\n\n`;
-      content += `[Généré par l'Assistant Stratégique NOVA]`;
+      content += `${record.data.transcript}\n\n`;
+      content += `Fournisseur : ${record.data.provider}\nDéploiement : ${record.data.deployment}\n\n`;
+      content += `[Transcrit par Azure OpenAI via NOVA]`;
     } else {
-      content = `RAPPORT D'ASSIMILATION : DOCUMENT STRATÉGIQUE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : Vectorisé et indexé avec succès.\n[Généré par l'Assistant Stratégique NOVA]`;
+      content = `RAPPORT D'INDEXATION DOCUMENTAIRE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : ${record.data.status}\nType d'index : ${record.data.index_type}\nExtracteur : ${record.data.extractor}\nMots : ${record.data.word_count}\nSegments : ${record.data.chunk_count}\nIdentifiant : ${record.data.document_id}\n`;
     }
 
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `NOVA_Rapport_${record.type}_${Date.now()}.txt`;
+    link.download = `NOVA_${record.type}_${Date.now()}.${extension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -221,9 +258,9 @@ export default function Dashboard() {
   };
 
   const taskConfig = {
-    batch: { accept: ".json,.jsonl,.csv", icon: <Users size={14} />, label: "Exports CRM (Retours Clients)" },
-    audio: { accept: ".wav,.mp3", icon: <Phone size={14} />, label: "Enregistrements d'appels" },
-    rag: { accept: ".pdf,.txt,.docx", icon: <Target size={14} />, label: "Documents Stratégiques" }
+    batch: { accept: ".json,.jsonl", icon: <Users size={14} />, label: "Feedback JSON / JSONL", ready: true, reason: null },
+    audio: { accept: ".wav,.mp3,.m4a,.webm", icon: <Phone size={14} />, label: "Enregistrements d'appels", ready: moduleReadiness.audio?.ready ?? false, reason: moduleReadiness.audio?.reason },
+    rag: { accept: ".pdf,.txt,.docx", icon: <Target size={14} />, label: "Documents à indexer", ready: moduleReadiness.documents?.ready ?? true, reason: moduleReadiness.documents?.reason }
   };
 
   const activeRecord = getActiveRecord();
@@ -286,36 +323,68 @@ export default function Dashboard() {
                       <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
                     </div>
                     <div className="flex flex-col justify-center border-l border-[#2353a4]/20 pl-4">
-                      <span className="font-extrabold text-rose-600 text-xs mb-1">CA MENACÉ (CHURN)</span>
-                      <span className="text-2xl font-black text-rose-600">{viewingRecord.data.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €</span>
+                      <span className="font-extrabold text-emerald-700 text-xs mb-1">TAUX DE VALIDITÉ</span>
+                      <span className="text-2xl font-black text-emerald-700">{viewingRecord.data.data_quality?.validity_rate_pct ?? 0}%</span>
                     </div>
                   </div>
-                  
-                  {viewingRecord.data.strategic_insights && (
+
+                  {viewingRecord.data.data_quality && (
                      <div className="mt-6">
-                        <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Insights Macro & Recommandations</p>
-                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-                            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed text-slate-700">
-                                {viewingRecord.data.strategic_insights.recommendations.map((reco: string, i: number) => (
-                                    <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
+                        <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Qualité et limites</p>
+                        <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-100">
+                            <ul className="space-y-2 text-xs leading-relaxed text-slate-700">
+                                {viewingRecord.data.data_quality.warnings.map((warning: any, i: number) => (
+                                    <li key={i}><strong>{warning.code} :</strong> {warning.message}</li>
                                 ))}
+                                {viewingRecord.data.data_quality.warnings.length === 0 && <li>Aucun problème de qualité détecté par les contrôles actuels.</li>}
                             </ul>
                         </div>
                      </div>
+                  )}
+
+                  {viewingRecord.data.evidence_insights?.findings?.length > 0 && (
+                    <div className="mt-6">
+                      <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Constats traçables</p>
+                      <div className="space-y-3">
+                        {viewingRecord.data.evidence_insights.findings.map((finding: any) => (
+                          <div key={finding.finding_id} className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                            <p className="font-bold text-slate-800">{finding.title}</p>
+                            <p className="mt-1 text-xs">{finding.statement}</p>
+                            <p className="mt-2 text-[10px] text-slate-500">Base : {finding.denominator} lignes • {finding.caveats.join(" • ")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {viewingRecord.data.review_queue?.length > 0 && (
+                    <div className="mt-6">
+                      <p className="font-bold text-amber-800 uppercase text-xs tracking-wide border-b pb-2 mb-3">File de revue ({viewingRecord.data.review_queue.length})</p>
+                      <div className="space-y-3">
+                        {viewingRecord.data.review_queue.slice(0, 10).map((item: any) => (
+                          <div key={item.feedback_id} className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs">
+                            <p className="font-bold text-slate-800">{item.feedback_id} • {item.predicted_theme_id}</p>
+                            <p className="mt-1 text-slate-600">{item.comment}</p>
+                            <p className="mt-2 text-amber-800">Motif : {item.review_reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
               {viewingRecord.type === 'audio' && (
                 <div className="space-y-4">
                   <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Retranscription intégrale</p>
-                  <p className="leading-relaxed whitespace-pre-wrap font-medium">{viewingRecord.data}</p>
+                  <p className="leading-relaxed whitespace-pre-wrap font-medium">{viewingRecord.data.transcript}</p>
+                  <p className="text-[10px] text-slate-500">{viewingRecord.data.provider} • déploiement {viewingRecord.data.deployment}</p>
                 </div>
               )}
               {viewingRecord.type === 'rag' && (
                 <div className="flex flex-col items-center justify-center py-8 text-emerald-600">
                   <Database size={48} className="mb-4 opacity-50" />
-                  <p className="font-bold text-lg">Document vectorisé avec succès</p>
-                  <p className="text-slate-500 text-sm mt-2 text-center max-w-md">L'ensemble du document a été découpé et inséré dans la mémoire sémantique. L'Assistant Stratégique y a désormais pleinement accès.</p>
+                  <p className="font-bold text-lg">Document indexé avec succès</p>
+                  <p className="text-slate-500 text-sm mt-2 text-center max-w-md">{viewingRecord.data.word_count} mots extraits par {viewingRecord.data.extractor}, répartis en {viewingRecord.data.chunk_count} segments dans un index lexical local consultable par l'Assistant Data.</p>
                 </div>
               )}
             </div>
@@ -325,7 +394,7 @@ export default function Dashboard() {
                 Fermer
               </button>
               <button onClick={() => handleDownload(viewingRecord)} className="px-4 py-2 text-sm font-bold text-white bg-[#2353a4] rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-md">
-                <Download size={16} /> Télécharger (.txt)
+                <Download size={16} /> Télécharger ({viewingRecord.type === "batch" ? ".json" : ".txt"})
               </button>
             </div>
           </div>
@@ -344,7 +413,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-semibold bg-white/10 px-2 py-1 rounded shadow-inner border border-white/5">
-            <span className={`w-1.5 h-1.5 rounded-full shadow-sm ${backendStatus === "Opérationnel" ? "bg-emerald-400" : "bg-rose-400"}`}></span>
+            <span className={`w-1.5 h-1.5 rounded-full shadow-sm ${backendStatus === "Opérationnel" ? "bg-emerald-400" : backendStatus === "API seule" ? "bg-amber-400" : "bg-rose-400"}`}></span>
             IA: {backendStatus}
           </div>
           <div className="w-7 h-7 rounded-full bg-slate-300 overflow-hidden cursor-pointer border border-white/20 shadow-sm">
@@ -374,6 +443,9 @@ export default function Dashboard() {
             <div className="border-t border-slate-100 pt-4">
               <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-1 font-semibold">Source de Données</p>
               <p className="text-sm text-[#f37021] font-semibold flex items-center gap-2">{taskConfig[activeTask].icon} {taskConfig[activeTask].label}</p>
+              {!taskConfig[activeTask].ready && (
+                <p className="text-[10px] text-amber-700 mt-2 leading-relaxed">Configuration requise : {taskConfig[activeTask].reason}</p>
+              )}
             </div>
           </div>
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 overflow-hidden">
@@ -386,8 +458,8 @@ export default function Dashboard() {
                   <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center bg-slate-50/50 hover:bg-blue-50/30 transition-colors">
                     <input type="file" accept={taskConfig[activeTask].accept} onChange={(e) => setFile(e.target.files?.[0] || null)} className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2353a4]/10 file:text-[#2353a4] cursor-pointer transition-colors" />
                   </div>
-                  <button type="submit" disabled={!file || loading} className="w-full bg-[#f37021] hover:bg-[#d95d13] disabled:bg-slate-300 text-white text-sm font-bold py-2.5 rounded-lg transition-all shadow-md">
-                    {loading ? "Génération en cours..." : "Générer les Insights"}
+                  <button type="submit" disabled={!file || loading || !taskConfig[activeTask].ready} className="w-full bg-[#f37021] hover:bg-[#d95d13] disabled:bg-slate-300 text-white text-sm font-bold py-2.5 rounded-lg transition-all shadow-md">
+                    {loading ? "Validation et enrichissement..." : "Valider et enrichir"}
                   </button>
                 </form>
              </div>
@@ -411,12 +483,12 @@ export default function Dashboard() {
             
             {activeTab === "RAPPORTS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">SYNTHÈSE STRATÉGIQUE</h3>
+                <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">QUALITÉ ET ENRICHISSEMENT DU DATASET</h3>
                 
                 {loading && (
                   <div className="flex flex-col items-center justify-center flex-1 text-[#2353a4]">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2353a4] mb-4"></div>
-                    <p className="text-sm font-semibold">NOVA consolide les données et recherche des corrélations...</p>
+                    <p className="text-sm font-semibold">NOVA valide le schéma et enrichit les lignes conformes...</p>
                   </div>
                 )}
 
@@ -427,10 +499,12 @@ export default function Dashboard() {
                       <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <p className="text-sm font-bold text-[#2353a4] mb-1">Rapport de Synthèse : Voix du Client</p>
-                            <p className="text-xs text-slate-500 font-medium">Analyse sémantique sur {batchResults.summary_metrics.total_processed} retours qualitatifs.</p>
+                            <p className="text-sm font-bold text-[#2353a4] mb-1">Dataset Feedback — Schéma v{batchResults.data_quality?.schema_version || "1"}</p>
+                            <p className="text-xs text-slate-500 font-medium">{batchResults.data_quality?.total_valid || 0} lignes valides, {batchResults.data_quality?.enrichment_succeeded || 0} enrichies.</p>
                           </div>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">Analyse Complétée</span>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded ${batchResults.run_info?.status === "complete" ? "bg-emerald-100 text-emerald-700" : batchResults.run_info?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
+                            {batchResults.run_info?.status === "complete" ? "Traitement complet" : batchResults.run_info?.status === "partial" ? "Traitement partiel" : "Traitement échoué"}
+                          </span>
                         </div>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-5 border-b border-slate-100">
@@ -438,34 +512,44 @@ export default function Dashboard() {
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Score NPS Global</p>
                             <p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p>
                           </div>
-                          <div className="bg-rose-50/30 p-3 rounded-lg text-center border border-rose-100 shadow-sm">
-                            <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">CA Menacé (Churn)</p>
-                            <p className="text-xl font-extrabold text-rose-600 mt-1">
-                              {batchResults.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €
+                          <div className="bg-emerald-50/30 p-3 rounded-lg text-center border border-emerald-100 shadow-sm">
+                            <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider mb-1">Lignes valides</p>
+                            <p className="text-xl font-extrabold text-emerald-700 mt-1">
+                              {batchResults.data_quality?.total_valid || 0} / {batchResults.data_quality?.total_received || 0}
                             </p>
                           </div>
                           <div className="bg-amber-50/30 p-3 rounded-lg text-center border border-amber-100 shadow-sm">
-                            <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Segment à Risque</p>
-                            <p className="text-sm font-extrabold text-slate-700 mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.worst_segment}>
-                              {batchResults.strategic_insights?.bi_metrics?.worst_segment || "En attente"}
-                            </p>
-                            <p className="text-[9px] text-rose-500 font-bold mt-1">NPS: {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}</p>
+                            <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider mb-1">Commentaires uniques</p>
+                            <p className="text-xl font-extrabold text-amber-700 mt-1">{batchResults.data_quality?.unique_comment_count || 0}</p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">Doublons : {batchResults.data_quality?.duplicate_comment_rows || 0}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Friction Produit</p>
-                            <p className="text-sm font-extrabold text-[#f37021] mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.top_product_issue}>
-                              {batchResults.strategic_insights?.bi_metrics?.top_product_issue || "En attente"}
-                            </p>
-                            <p className="text-[9px] text-slate-500 font-bold mt-1">Résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Enrichissements ML</p>
+                            <p className="text-xl font-extrabold text-[#f37021] mt-1">{batchResults.data_quality?.predictions_ready || 0}</p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">À revoir : {batchResults.data_quality?.predictions_review_required || 0} • Échecs : {batchResults.data_quality?.enrichment_failed || 0}</p>
                           </div>
                         </div>
 
+                        <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-100 text-sm text-slate-700 mb-4">
+                           <p className="font-bold text-amber-800 mb-2 flex items-center gap-2"><AlertTriangle size={14}/> Contrôles de qualité :</p>
+                           <ul className="space-y-2 text-xs leading-relaxed">
+                              {(batchResults.data_quality?.warnings || []).map((warning: any, i: number) => (
+                                 <li key={i}><strong>{warning.code} :</strong> {warning.message}</li>
+                              ))}
+                              {(batchResults.data_quality?.warnings || []).length === 0 && <li>Aucun problème détecté par les contrôles actuels.</li>}
+                           </ul>
+                        </div>
+
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
-                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommandations Stratégiques (IA) :</p>
-                           <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
-                              {batchResults.strategic_insights?.recommendations?.map((reco: string, i: number) => (
-                                 <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
-                              )) || <li>Les recommandations sont en cours de génération...</li>}
+                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Constats descriptifs et traçables :</p>
+                           <ul className="space-y-3 text-xs leading-relaxed">
+                              {(batchResults.evidence_insights?.findings || []).map((finding: any) => (
+                                 <li key={finding.finding_id}>
+                                   <strong>{finding.title} :</strong> {finding.statement}
+                                   <span className="block text-[10px] text-slate-500 mt-1">Base : {finding.denominator} lignes • {finding.caveats.join(" • ")}</span>
+                                 </li>
+                              ))}
+                              {(batchResults.evidence_insights?.findings || []).length === 0 && <li>Pas assez de prédictions valides pour produire un constat.</li>}
                            </ul>
                         </div>
                         
@@ -474,7 +558,7 @@ export default function Dashboard() {
                             <Eye size={14} /> Aperçu détaillé
                           </button>
                           <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                            <Download size={14} /> Exporter (.txt)
+                            <Download size={14} /> Exporter le dataset (.json)
                           </button>
                         </div>
                       </div>
@@ -486,9 +570,10 @@ export default function Dashboard() {
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-[#2353a4] flex items-center justify-center shrink-0 mt-1 shadow-md"><Mic size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse de l'Interaction Vocale</p>
-                      <p className="text-xs text-slate-500 mb-4 font-medium">Extraction du script et détection des intentions.</p>
-                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 line-clamp-4">{audioResult}</div>
+                      <p className="text-sm font-bold text-[#2353a4] mb-1">Transcription de l'interaction vocale</p>
+                      <p className="text-xs text-slate-500 mb-4 font-medium">Conversion audio vers texte avec provenance du modèle.</p>
+                      <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 line-clamp-4">{audioResult.transcript}</div>
+                      <p className="text-[10px] text-slate-500 mb-3">{audioResult.provider} • déploiement {audioResult.deployment}</p>
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
                         <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm"><Download size={14} /> Exporter (.txt)</button>
@@ -501,9 +586,9 @@ export default function Dashboard() {
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-1 shadow-md"><Database size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <p className="text-sm font-bold text-[#2353a4] mb-1">Assimilation Stratégique</p>
-                      <p className="text-xs text-slate-500 mb-4 font-medium">Le document a été converti en base de connaissances décisionnelle.</p>
-                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4"><Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont prêtes.</div>
+                      <p className="text-sm font-bold text-[#2353a4] mb-1">Index documentaire</p>
+                      <p className="text-xs text-slate-500 mb-4 font-medium">Extraction réelle et index lexical local pour les réponses documentaires.</p>
+                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4"><Sparkles size={18} /> <strong>{ragResult.filename}</strong> : {ragResult.word_count} mots, {ragResult.chunk_count} segments indexés via {ragResult.extractor}.</div>
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
                         <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm"><Download size={14} /> Exporter (.txt)</button>
@@ -515,7 +600,7 @@ export default function Dashboard() {
                 {!loading && !batchResults && !audioResult && !ragResult && (
                   <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
                     <BrainCircuit size={48} className="mb-3 opacity-30" />
-                    <p className="text-sm font-medium">Connectez une source de données pour générer des recommandations.</p>
+                      <p className="text-sm font-medium">Chargez un fichier JSON ou JSONL conforme au schéma feedback v1.</p>
                   </div>
                 )}
               </div>
@@ -532,15 +617,21 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="flex-1 w-full bg-slate-100 rounded-xl border border-slate-200 overflow-hidden relative shadow-inner">
-                  <iframe 
+                  {POWER_BI_EMBED_URL ? <iframe
                     title="Dashboard_Strategique_CloudShift" 
                     width="100%" 
                     height="100%" 
-                    src="https://app.powerbi.com/reportEmbed?reportId=VOTRE_ID_DE_RAPPORT&autoAuth=true&ctid=VOTRE_TENANT_ID" 
+                    src={POWER_BI_EMBED_URL}
                     frameBorder="0" 
                     allowFullScreen={true}
                     className="absolute inset-0"
-                  ></iframe>
+                  ></iframe> : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 text-slate-500">
+                      <BarChart3 size={44} className="mb-3 opacity-30" />
+                      <p className="font-bold text-slate-700">Configuration Power BI requise</p>
+                      <p className="text-xs mt-2 max-w-md">Ajoutez NEXT_PUBLIC_POWER_BI_EMBED_URL dans frontend/.env.local avec l'URL d'intégration fournie par votre espace Power BI.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -603,10 +694,10 @@ export default function Dashboard() {
                             </div>
                           )}
                           {record.type === 'audio' && (
-                            <p className="line-clamp-1 italic">"{record.data}"</p>
+                            <p className="line-clamp-1 italic">"{record.data.transcript}"</p>
                           )}
                           {record.type === 'rag' && (
-                            <p className="text-emerald-700 font-medium">Indexation réussie. Le document est prêt pour l'Assistant Stratégique.</p>
+                            <p className="text-emerald-700 font-medium">{record.data.chunk_count} segments indexés. Document consultable par l'Assistant Data.</p>
                           )}
                         </div>
                       </div>
@@ -630,7 +721,7 @@ export default function Dashboard() {
                <div className="w-10 h-10 bg-gradient-to-br from-[#2353a4] to-[#1a4082] rounded-full flex items-center justify-center mb-2 shadow-md">
                  <BrainCircuit size={20} className="text-white" />
                </div>
-               <h3 className="font-extrabold text-slate-800 text-sm">Assistant Stratégique</h3>
+               <h3 className="font-extrabold text-slate-800 text-sm">Assistant Data</h3>
             </div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
                {chatMessages.map((msg, idx) => (
@@ -647,8 +738,8 @@ export default function Dashboard() {
                <div ref={chatEndRef} />
             </div>
             <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
-              <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Demander une recommandation..." className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#2353a4]" />
-              <button type="submit" disabled={isChatSending || !chatInput.trim()} className="w-8 h-8 rounded-full bg-[#2353a4] disabled:bg-slate-300 flex items-center justify-center text-white cursor-pointer"><Send size={14} /></button>
+              <input type="text" value={chatInput} disabled={moduleReadiness.assistant?.ready === false} onChange={(e) => setChatInput(e.target.value)} placeholder={moduleReadiness.assistant?.ready === false ? "Configuration Azure requise" : "Poser une question sur les données..."} className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#2353a4] disabled:text-slate-400" />
+              <button type="submit" disabled={moduleReadiness.assistant?.ready === false || isChatSending || !chatInput.trim()} className="w-8 h-8 rounded-full bg-[#2353a4] disabled:bg-slate-300 flex items-center justify-center text-white cursor-pointer"><Send size={14} /></button>
             </form>
           </div>
         </aside>

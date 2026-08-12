@@ -28,15 +28,18 @@ class AzureFeedbackAnalysisTests(unittest.TestCase):
     @patch("src.ai.extractor.create_chat_completion")
     def test_feedback_response_is_normalized_for_batch_runner(self, completion):
         completion.return_value = (
-            '{"sentiment":"negative","main_cause":"delay",'
-            '"theme":"support","urgency":"high","summary":"Late reply"}'
+            '{"sentiment":"negative","theme_id":"SUPPORT_RESPONSE_TIME",'
+            '"urgency":"high","summary":"Late reply",'
+            '"evidence":"reply was late"}'
         )
 
         result = analyze_feedback("CUST-1", 3, "The reply was late")
 
         self.assertEqual(result["customer_id"], "CUST-1")
         self.assertEqual(result["nps_category"], "detracteur")
-        self.assertEqual(result["ai_analysis"]["theme"], "support")
+        self.assertEqual(result["prediction"]["theme_id"], "SUPPORT_RESPONSE_TIME")
+        self.assertFalse(result["prediction_needs_review"])
+        self.assertEqual(result["model_metadata"]["prompt_version"], "feedback-enrichment-v1")
         completion.assert_called_once()
 
 

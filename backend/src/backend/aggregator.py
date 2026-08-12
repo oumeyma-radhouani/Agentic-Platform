@@ -65,10 +65,10 @@ def _display_number(value: float) -> int | float:
 def calculate_summary_metrics(
     processed_records: Iterable[Mapping[str, Any]],
 ) -> dict[str, int | float]:
-    """Calculate NPS metrics from successfully processed records."""
+    """Calculate NPS metrics from validated source records."""
     records = list(processed_records)
     categories = Counter(
-        classify_nps(record["original_score"])
+        classify_nps(record["score"] if "score" in record else record["original_score"])
         for record in records
     )
     total = len(records)
@@ -96,9 +96,9 @@ def calculate_top_themes(
         raise ValueError("The theme limit cannot be negative.")
 
     themes = Counter(
-        str(record["assigned_theme"]).strip()
+        str(record.get("predicted_theme_id", record.get("assigned_theme", ""))).strip()
         for record in processed_records
-        if str(record.get("assigned_theme", "")).strip()
+        if str(record.get("predicted_theme_id", record.get("assigned_theme", ""))).strip()
     )
     ordered = sorted(themes.items(), key=lambda item: (-item[1], item[0].casefold()))
     if limit is not None:
@@ -109,12 +109,14 @@ def calculate_top_themes(
 def aggregate_results(
     processed_records: Iterable[Mapping[str, Any]],
     *,
+    metric_records: Iterable[Mapping[str, Any]] | None = None,
     top_theme_limit: int | None = 5,
 ) -> dict[str, Any]:
     """Build the stable backend payload consumed by the dashboard."""
     records = [dict(record) for record in processed_records]
+    source_metrics = records if metric_records is None else list(metric_records)
     return {
-        "summary_metrics": calculate_summary_metrics(records),
+        "summary_metrics": calculate_summary_metrics(source_metrics),
         "top_themes": calculate_top_themes(records, limit=top_theme_limit),
         "processed_records": records,
     }

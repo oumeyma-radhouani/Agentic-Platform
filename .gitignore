@@ -5,9 +5,20 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
+.pyre/
+.pytype/
+.tox/
+.nox/
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
+.ipynb_checkpoints/
+*.egg-info/
+.eggs/
+build/
+dist/
 
 # Virtual environments
 .venv/
@@ -20,17 +31,28 @@ env/
 # Local editor and Codex workspace files
 .idea/
 .vscode/
+.vs/
+.fleet/
 /.codex-remote-attachments/
 
 # Generated reports, renders, and temporary work files
 /output/
 /tmp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
 
 # Local planning artifact (not part of the application)
 /PROJECT_ROADMAP.txt
 
 # Runtime logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
 
 # Runtime uploads created by the Streamlit app
 /temp_*
@@ -38,8 +60,21 @@ env/
 # OS generated files
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Security: Never push environment variables (API keys, passwords)
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local service state and deployment credentials
+*.db
+*.sqlite
+*.sqlite3
+.azure/
+.vercel/
+.turbo/

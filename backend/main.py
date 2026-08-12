@@ -1,6 +1,9 @@
 import os
 import json
 import tempfile
+import logging
+import io
+from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,12 +11,20 @@ from langchain_mongodb.chat_message_histories import MongoDBChatMessageHistory
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from src.backend.batch_runner import run_batch
+from src.backend.context_store import format_batch_context, store_batch_context
+from src.backend.audio import is_transcription_configured, transcribe_audio
+from src.backend.azure_rag import get_document_count, retrieve_relevant_chunks
 from src.ai.azure_client import is_azure_configured, create_chat_completion
 
 app = FastAPI(title="NOVA API", version="2.0")
+logger = logging.getLogger(__name__)
+
+MAX_BATCH_BYTES = 10 * 1024 * 1024
+MAX_AUDIO_BYTES = 25 * 1024 * 1024
+MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,12 +38,30 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "executive_dashboard_session"
 
+
+async def read_upload_limited(file: UploadFile, max_bytes: int) -> bytes:
+    content = await file.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {max_bytes // (1024 * 1024)} MB limit.",
+        )
+    return content
+
 def get_mongo_history(session_id: str):
-    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    # Forçage pour contrer (si possible) le pare-feu du fournisseur d'accès
-    if "tlsallowinvalidcertificates" not in mongo_uri.lower():
-        separator = "&" if "?" in mongo_uri else "?"
-        mongo_uri += f"{separator}tlsAllowInvalidCertificates=true"
+    mongo_uri = os.getenv("MONGO_URI", "").strip()
+    if not mongo_uri:
+        raise RuntimeError("MongoDB history is disabled because MONGO_URI is not configured.")
+
+    options = {
+        "serverSelectionTimeoutMS": "2000",
+        "connectTimeoutMS": "2000",
+        "socketTimeoutMS": "2000",
+    }
+    for key, value in options.items():
+        if key.casefold() not in mongo_uri.casefold():
+            separator = "&" if "?" in mongo_uri else "?"
+            mongo_uri += f"{separator}{key}={value}"
 
     return MongoDBChatMessageHistory(
         session_id=session_id,
@@ -43,41 +72,54 @@ def get_mongo_history(session_id: str):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "online", "azure_ready": is_azure_configured()}
+    azure_ready = is_azure_configured()
+    return {
+        "status": "online",
+        "modules": {
+            "batch_validation": {"ready": True},
+            "batch_enrichment": {
+                "ready": azure_ready,
+                "reason": None if azure_ready else "Azure OpenAI is not configured.",
+            },
+            "assistant": {
+                "ready": azure_ready,
+                "reason": None if azure_ready else "Azure OpenAI is not configured.",
+            },
+            "audio": {
+                "ready": is_transcription_configured(),
+                "reason": None if is_transcription_configured() else "A transcription deployment is required.",
+            },
+            "documents": {"ready": True, "index_type": "local_lexical_cosine"},
+        },
+    }
 
 @app.post("/api/batch")
 async def process_batch(file: UploadFile = File(...), session_id: str = Form("executive_dashboard_session")):
     try:
-        content = await file.read()
+        content = await read_upload_limited(file, MAX_BATCH_BYTES)
         filename = file.filename or ""
+        source = io.StringIO(content.decode("utf-8-sig"))
+        source.name = filename
+        results = run_batch(source)
+        store_batch_context(session_id, results)
         
-        if filename.endswith('.jsonl'):
-            lines = content.decode('utf-8').splitlines()
-            batch_data = [json.loads(line) for line in lines if line.strip()]
-        else:
-            parsed_data = json.loads(content.decode('utf-8'))
-            # CORRECTION ICI : On extrait la liste 'records' si c'est un dictionnaire
-            if isinstance(parsed_data, dict) and "records" in parsed_data:
-                batch_data = parsed_data["records"]
-            elif isinstance(parsed_data, dict):
-                batch_data = [parsed_data]
-            else:
-                batch_data = parsed_data
-            
-        results = run_batch(batch_data)
-        
-        # FILET DE SÉCURITÉ
         try:
             history = get_mongo_history(session_id)
-            total = results.get('summary_metrics', {}).get('total_processed', 0)
-            nps = results.get('summary_metrics', {}).get('nps_score', 0)
-            history.add_ai_message(f"[Système] L'analyse stratégique est terminée. J'ai examiné {total} retours (Score NPS : {nps}) et généré des recommandations d'aide à la décision.")
-        except Exception as db_err:
-            print(f"⚠️ Avertissement MongoDB (Blocage Réseau ignoré) : La sauvegarde dans l'historique a échoué, mais l'analyse continue.")
+            quality = results.get("data_quality", {})
+            history.add_ai_message(
+                "[Systeme] Validation terminee : "
+                f"{quality.get('total_valid', 0)} lignes valides, "
+                f"{quality.get('total_rejected', 0)} rejetees et "
+                f"{quality.get('enrichment_succeeded', 0)} enrichies."
+            )
+        except Exception:
+            logger.info("MongoDB history unavailable; batch result was not persisted.")
         
         return {"success": True, "data": results}
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Erreur API Batch: {e}") 
+        logger.exception("Batch API failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/chat")
@@ -87,10 +129,38 @@ async def chat_endpoint(payload: ChatRequest):
             return {"response": "Erreur : Azure OpenAI n'est pas configuré."}
         
         system_prompt = (
-            "Vous êtes NOVA, un Assistant IA d'analyse de données et d'aide à la décision. "
-            "Soyez clair, précis et concis en français."
+            "Vous etes NOVA, un assistant de qualite et d'analyse de donnees. "
+            "Distinguez les donnees source des predictions de modele, mentionnez les "
+            "tailles d'echantillon et les limites, et n'inventez jamais d'impact metier. "
+            "Soyez clair, precis et concis en francais."
         )
         messages_for_azure = [{"role": "system", "content": system_prompt}]
+
+        batch_context = format_batch_context(payload.session_id)
+        if batch_context:
+            messages_for_azure.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Verified context for the active feedback batch follows as JSON. "
+                        "Use only these values for dataset-specific claims and cite batch "
+                        "metrics or feedback IDs when possible:\n" + batch_context
+                    ),
+                }
+            )
+
+        retrieved_chunks = retrieve_relevant_chunks(payload.session_id, payload.message)
+        if retrieved_chunks:
+            messages_for_azure.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Relevant indexed document excerpts follow as JSON. Cite the "
+                        "filename and chunk index for claims derived from them:\n"
+                        + json.dumps(retrieved_chunks, ensure_ascii=False)
+                    ),
+                }
+            )
         
         # FILET DE SÉCURITÉ MONGODB
         history = None
@@ -99,8 +169,8 @@ async def chat_endpoint(payload: ChatRequest):
             for msg in history.messages:
                 role = "user" if msg.type == "human" else "assistant"
                 messages_for_azure.append({"role": role, "content": msg.content})
-        except Exception as db_err:
-            print(f"⚠️ Historique MongoDB inaccessible, mode sans-mémoire activé.")
+        except Exception:
+            logger.info("MongoDB history unavailable; chat is running without memory.")
             
         messages_for_azure.append({"role": "user", "content": payload.message})
         response = create_chat_completion(messages_for_azure)
@@ -115,7 +185,7 @@ async def chat_endpoint(payload: ChatRequest):
         return {"response": response}
         
     except Exception as e:
-        print(f"Erreur Chat: {e}")
+        logger.exception("Chat API failed")
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/api/chat/history")
@@ -127,23 +197,21 @@ async def get_history(session_id: str = "executive_dashboard_session"):
             sender = "user" if msg.type == "human" else "copilot"
             formatted_messages.append({"sender": sender, "text": msg.content})
         return {"success": True, "messages": formatted_messages}
-    except Exception as e:
-        print(f"⚠️ Impossible de charger l'historique MongoDB (Blocage Réseau).")
+    except Exception:
+        logger.info("MongoDB history unavailable; returning an empty history.")
         return {"success": True, "messages": []}
 
 @app.post("/api/audio")
 async def process_audio(file: UploadFile = File(...), session_id: str = Form("executive_dashboard_session")):
     try:
-        from src.backend.audio import transcribe_audio
-        
         suffix = os.path.splitext(file.filename or ".wav")[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            content = await file.read()
+            content = await read_upload_limited(file, MAX_AUDIO_BYTES)
             tmp.write(content)
             tmp_path = tmp.name
 
         try:
-            transcript = transcribe_audio(tmp_path)
+            result = transcribe_audio(tmp_path)
             
             try:
                 history = get_mongo_history(session_id)
@@ -151,11 +219,16 @@ async def process_audio(file: UploadFile = File(...), session_id: str = Form("ex
             except:
                 pass
             
-            return {"success": True, "transcript": transcript}
+            return {"success": True, **result, "filename": file.filename}
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
+        logger.exception("Audio transcription failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rag")
@@ -165,23 +238,34 @@ async def process_rag(file: UploadFile = File(...), session_id: str = Form("exec
         
         suffix = os.path.splitext(file.filename or ".pdf")[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            content = await file.read()
+            content = await read_upload_limited(file, MAX_DOCUMENT_BYTES)
             tmp.write(content)
             tmp_path = tmp.name
 
         try:
-            success = process_and_vectorize(tmp_path, file.filename or "doc")
+            result = process_and_vectorize(
+                tmp_path, file.filename or "doc", session_id=session_id
+            )
             
-            if success:
+            if result["status"] == "indexed":
                 try:
                     history = get_mongo_history(session_id)
                     history.add_ai_message(f"[Système] J'ai assimilé les données du document ({file.filename}).")
                 except:
                     pass
                 
-            return {"success": success, "filename": file.filename}
+            return {
+                "success": True,
+                **result,
+                "documents_in_session": get_document_count(session_id),
+            }
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        logger.exception("Document indexing failed")
         raise HTTPException(status_code=500, detail=str(e))

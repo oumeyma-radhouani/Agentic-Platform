@@ -1,11 +1,7 @@
 import json
 import random
-from datetime import datetime, timedelta
 import uuid
 
-# Configuration des variables métiers de CloudShift
-produits = ["Cloud Infrastructure", "CyberSecurity Suite", "Data Backup", "SaaS ERP"]
-segments = ["PME", "Grand Compte VIP", "Startup", "Secteur Public"]
 sources = ["Campagne Appel Q3", "Support Ticket", "Appel de Rétention"]
 
 # Base de commentaires réalistes
@@ -46,23 +42,14 @@ for i in range(50):
     else:
         comment = random.choice(commentaires_positifs)
 
-    # Création du "Metadata" -> C'est ICI qu'on simule les données du SI (Système d'Information)
-    metadata = {
-        "segment_client": random.choice(segments),
-        "produit_concerne": random.choice(produits),
-        "valeur_annuelle_client_eur": random.randint(5000, 150000),
-        "temps_resolution_heures": random.randint(1, 72)
-    }
-
-    # Format attendu par NOVA
+    # Schéma canonique feedback v1
     record = {
         "feedback_id": f"FB-{uuid.uuid4().hex[:8].upper()}",
         "customer_id": f"CUST-{random.randint(1000, 9999)}",
+        "source": random.choice(sources),
         "score": score,
         "comment": comment,
-        "source": random.choice(sources),
-        "created_at": (datetime.now() - timedelta(days=random.randint(0, 30))).isoformat(),
-        "metadata": metadata
+        "language": "FR"
     }
     
     records.append(record)
@@ -72,4 +59,4 @@ filename = "cloudshift_export_si_2026.json"
 with open(filename, 'w', encoding='utf-8') as f:
     json.dump({"records": records}, f, indent=4, ensure_ascii=False)
 
-print(f"✅ Fichier '{filename}' généré avec succès ! ({len(records)} retours simulés croisés avec les données du SI).")
+print(f"Fichier '{filename}' genere avec succes ({len(records)} retours au schema v1).")
