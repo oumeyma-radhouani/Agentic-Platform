@@ -14,7 +14,7 @@ from src.backend.auth import MongoAuthStore
 
 
 def main() -> None:
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+    load_dotenv(Path(__file__).resolve().parent / ".env")
     parser = argparse.ArgumentParser(description="Create a MongoDB-backed NOVA user.")
     parser.add_argument("--username", required=True)
     parser.add_argument("--display-name")
