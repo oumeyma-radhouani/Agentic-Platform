@@ -6,8 +6,7 @@ import logging
 from collections import Counter
 from typing import Any, Iterable, Mapping
 
-# Set up basic logging so we can see errors in the terminal
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def parse_agent_response(raw_response: str) -> str:
     """
@@ -34,12 +33,12 @@ def parse_agent_response(raw_response: str) -> str:
     except json.JSONDecodeError:
         # If it fails to parse, it means the agent just sent normal conversational text.
         # In that case, we just return the text exactly as it is!
-        logging.info("Response is not standard JSON, returning raw text.")
+        logger.info("agent_response_not_json")
         return raw_response
         
     except Exception as e:
         # Catch-all for any weird formatting errors so it doesn't crash the dashboard
-        logging.error(f"Error parsing agent output: {e}")
+        logger.exception("agent_response_parsing_failed")
         return f"⚠️ **Output Parsing Error:** Could not format the agent's response. \n\n*Raw output:* {raw_response}"
 
 

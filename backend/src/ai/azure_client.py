@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import os
+import logging
 from functools import lru_cache
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Sequence
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
+
+from src.backend.logging_config import log_event
 
 load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 DEFAULT_ENDPOINT = "https://novaso.openai.azure.com/"
 DEFAULT_DEPLOYMENT = "gpt-4.1-mini"
 DEFAULT_API_VERSION = "2024-12-01-preview"
+logger = logging.getLogger(__name__)
 
 
 def get_deployment_name() -> str:
@@ -66,10 +71,42 @@ def create_chat_completion(
     if response_format is not None:
         request["response_format"] = response_format
 
-    response = get_azure_client().chat.completions.create(**request)
+    started = perf_counter()
+    log_event(
+        logger,
+        logging.DEBUG,
+        "azure_chat_completion_started",
+        deployment=request["model"],
+        message_count=len(messages),
+        max_completion_tokens=max_completion_tokens,
+        temperature=temperature,
+        structured_response=response_format is not None,
+    )
+    try:
+        response = get_azure_client().chat.completions.create(**request)
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "azure_chat_completion_failed",
+            exc_info=True,
+            deployment=request["model"],
+            message_count=len(messages),
+            duration_ms=round((perf_counter() - started) * 1000),
+        )
+        raise
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("Azure OpenAI returned an empty response.")
+    log_event(
+        logger,
+        logging.INFO,
+        "azure_chat_completion_completed",
+        deployment=request["model"],
+        message_count=len(messages),
+        response_chars=len(content),
+        duration_ms=round((perf_counter() - started) * 1000),
+    )
     return content
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
@@ -24,9 +25,12 @@ from src.backend.schema import (
     feedback_json_schema,
 )
 from src.backend.privacy import redact_model_input
+from src.backend.logging_config import log_event
+from src.backend.prompt_security import DETECTOR_VERSION, assess_prompt_injection
 
 Analyzer = Callable[[str, int, str], Mapping[str, Any]]
 ProgressCallback = Callable[[int, int], None]
+logger = logging.getLogger(__name__)
 
 
 class RecordValidationError(ValueError):
@@ -192,6 +196,7 @@ def _build_data_quality_report(
 ) -> dict[str, Any]:
     validation_errors = [error for error in errors if error["stage"] == "validation"]
     enrichment_errors = [error for error in errors if error["stage"] == "enrichment"]
+    security_reviews = [error for error in errors if error["stage"] == "security"]
     review_required = sum(
         bool(record.get("prediction_needs_review")) for record in enriched_records
     )
@@ -223,6 +228,17 @@ def _build_data_quality_report(
                 "code": "ENRICHMENT_FAILURES",
                 "severity": "warning",
                 "message": f"{len(enrichment_errors)} valid record(s) could not be enriched.",
+            }
+        )
+    if security_reviews:
+        warnings.append(
+            {
+                "code": "PROMPT_INJECTION_REVIEW",
+                "severity": "warning",
+                "message": (
+                    f"{len(security_reviews)} valid record(s) were preserved but not "
+                    "sent for enrichment because local security checks flagged them."
+                ),
             }
         )
     if review_required:
@@ -260,10 +276,12 @@ def _build_data_quality_report(
         "total_valid": valid,
         "total_rejected": len(validation_errors),
         "validity_rate_pct": 0 if total == 0 else round(valid / total * 100, 2),
-        "enrichment_succeeded": valid - len(enrichment_errors),
+        "enrichment_succeeded": len(enriched_records),
         "enrichment_failed": len(enrichment_errors),
+        "enrichment_skipped_security": len(security_reviews),
         "predictions_ready": len(enriched_records) - review_required,
         "predictions_review_required": review_required,
+        "total_review_required": review_required + len(security_reviews),
         "model_inputs_redacted": redacted_model_inputs,
         "unique_comment_count": len(comment_counts),
         "duplicate_comment_rows": duplicate_comment_rows,
@@ -400,11 +418,32 @@ def run_batch(
     batch_started = _utc_now()
     timer_started = perf_counter()
     batch_id = f"BATCH-{uuid4().hex[:12].upper()}"
-    raw_records, source_name = _read_source(source)
+    try:
+        raw_records, source_name = _read_source(source)
+    except Exception as exc:
+        log_event(
+            logger,
+            logging.ERROR,
+            "batch_source_read_failed",
+            batch_id=batch_id,
+            reason_type=type(exc).__name__,
+        )
+        raise
+
+    log_event(
+        logger,
+        logging.INFO,
+        "batch_processing_started",
+        batch_id=batch_id,
+        source_name=source_name,
+        total_received=len(raw_records),
+        max_retries=max_retries,
+    )
     analyze = analyzer or _default_analyzer()
     normalized_records: list[dict[str, Any]] = []
     enriched_records: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    security_review_queue: list[dict[str, Any]] = []
     seen_feedback_ids: set[str] = set()
     total = len(raw_records)
 
@@ -431,6 +470,58 @@ def run_batch(
                     "error_reason": str(exc),
                 }
             )
+            log_event(
+                logger,
+                logging.DEBUG,
+                "batch_record_validation_failed",
+                batch_id=batch_id,
+                record_index=index,
+                reason_type=type(exc).__name__,
+            )
+            if progress_callback is not None:
+                progress_callback(index, total)
+            continue
+
+        security_assessment = assess_prompt_injection(record["comment"])
+        if not security_assessment.allowed:
+            assessment_data = security_assessment.to_dict()
+            errors.append(
+                {
+                    "record_index": index,
+                    "feedback_id": feedback_id,
+                    "stage": "security",
+                    "status": "review_required",
+                    "error_reason": "Potential prompt injection detected by local rules.",
+                    "security_assessment": assessment_data,
+                }
+            )
+            security_review_queue.append(
+                {
+                    "feedback_id": record["feedback_id"],
+                    "customer_id": record["customer_id"],
+                    "score": record["score"],
+                    "comment": record["comment"],
+                    "predicted_theme_id": None,
+                    "predicted_sentiment": None,
+                    "predicted_urgency": None,
+                    "prediction_evidence": None,
+                    "review_reason": "Local prompt-injection indicators require review.",
+                    "review_type": "security",
+                    "security_assessment": assessment_data,
+                    "model_name": None,
+                    "prompt_version": None,
+                }
+            )
+            log_event(
+                logger,
+                logging.WARNING,
+                "batch_record_security_review_required",
+                batch_id=batch_id,
+                record_index=index,
+                risk=security_assessment.risk,
+                score=security_assessment.score,
+                reason_codes=list(security_assessment.reason_codes),
+            )
             if progress_callback is not None:
                 progress_callback(index, total)
             continue
@@ -456,6 +547,14 @@ def run_batch(
                     "error_reason": str(exc),
                 }
             )
+            log_event(
+                logger,
+                logging.DEBUG,
+                "batch_record_enrichment_failed",
+                batch_id=batch_id,
+                record_index=index,
+                reason_type=type(exc).__name__,
+            )
         finally:
             if progress_callback is not None:
                 progress_callback(index, total)
@@ -470,7 +569,7 @@ def run_batch(
     )
     output["normalized_records"] = normalized_records
     output["enriched_records"] = enriched_records
-    output["review_queue"] = [
+    output["review_queue"] = security_review_queue + [
         {
             "feedback_id": record["feedback_id"],
             "customer_id": record["customer_id"],
@@ -481,6 +580,8 @@ def run_batch(
             "predicted_urgency": record["predicted_urgency"],
             "prediction_evidence": record["prediction_evidence"],
             "review_reason": "prediction evidence was not found verbatim in the model input",
+            "review_type": "prediction",
+            "security_assessment": None,
             "model_name": record["model_name"],
             "prompt_version": record["prompt_version"],
         }
@@ -493,6 +594,22 @@ def run_batch(
     output["data_quality"] = _build_data_quality_report(
         raw_records, normalized_records, enriched_records, errors
     )
+    flagged_record_count = output["data_quality"]["enrichment_skipped_security"]
+    output["security_alert"] = {
+        "detected": flagged_record_count > 0,
+        "code": "PROMPT_INJECTION_FLAGGED" if flagged_record_count else None,
+        "severity": "warning" if flagged_record_count else "none",
+        "flagged_record_count": flagged_record_count,
+        "action": "quarantined_for_review" if flagged_record_count else "none",
+        "detector_version": DETECTOR_VERSION,
+        "message": (
+            f"Potential prompt-injection indicators were detected in "
+            f"{flagged_record_count} record(s). The records were preserved, excluded "
+            "from ML enrichment, and added to the review queue."
+            if flagged_record_count
+            else "No prompt-injection indicators were detected by the local rules."
+        ),
+    }
     output["evidence_insights"] = _generate_evidence_insights(
         normalized_records, enriched_records
     )
@@ -520,8 +637,19 @@ def run_batch(
             "predicted_urgency",
             "prediction_evidence",
             "review_reason",
+            "review_type",
+            "security_assessment",
             "model_name",
             "prompt_version",
+        ],
+        "security_alert_fields": [
+            "detected",
+            "code",
+            "severity",
+            "flagged_record_count",
+            "action",
+            "detector_version",
+            "message",
         ],
         "feedback_json_schema": feedback_json_schema(),
         "nps_definition": {
@@ -529,14 +657,21 @@ def run_batch(
             "passive": "score 7-8",
             "promoter": "score 9-10",
         },
+        "security_policy": {
+            "prompt_injection_detector": DETECTOR_VERSION,
+            "source_records_preserved": True,
+            "flagged_records_sent_for_enrichment": False,
+            "flagged_records_destination": "review_queue",
+        },
     }
     output["errors"] = errors
     validation_failures = sum(error["stage"] == "validation" for error in errors)
     enrichment_failures = sum(error["stage"] == "enrichment" for error in errors)
+    security_review_required = sum(error["stage"] == "security" for error in errors)
     review_required = len(enriched_records) - len(trusted_enriched_records)
     if not normalized_records:
         run_status = "failed"
-    elif validation_failures or enrichment_failures or review_required:
+    elif validation_failures or enrichment_failures or security_review_required or review_required:
         run_status = "partial"
     else:
         run_status = "complete"
@@ -553,6 +688,25 @@ def run_batch(
         "total_enriched": len(enriched_records),
         "total_failed_validation": validation_failures,
         "total_failed_enrichment": enrichment_failures,
+        "total_security_review_required": security_review_required,
         "total_predictions_review_required": review_required,
     }
+    completion_level = logging.INFO if run_status == "complete" else logging.WARNING
+    log_event(
+        logger,
+        completion_level,
+        "batch_processing_completed",
+        batch_id=batch_id,
+        source_name=source_name,
+        status=run_status,
+        total_received=total,
+        total_valid=len(normalized_records),
+        total_rejected=validation_failures,
+        total_enriched=len(enriched_records),
+        enrichment_failed=enrichment_failures,
+        security_review_required=security_review_required,
+        review_required=review_required + security_review_required,
+        redacted_model_inputs=output["data_quality"]["model_inputs_redacted"],
+        duration_ms=output["run_info"]["processing_time_ms"],
+    )
     return output

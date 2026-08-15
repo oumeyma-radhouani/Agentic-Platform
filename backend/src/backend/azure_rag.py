@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import re
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,10 +17,14 @@ from threading import RLock
 from typing import Any
 from uuid import uuid4
 
+from src.backend.logging_config import anonymize_identifier, log_event
+from src.backend.prompt_security import PromptInjectionDetected, assess_prompt_injection
+
 
 _TOKEN_PATTERN = re.compile(r"[\w'-]+", re.UNICODE)
 _INDEX_LOCK = RLock()
 _DOCUMENTS: dict[str, list[dict[str, Any]]] = {}
+logger = logging.getLogger(__name__)
 
 
 def _extract_text(path: Path) -> tuple[str, str]:
@@ -68,10 +73,25 @@ def _cosine_similarity(left: Counter[str], right: Counter[str]) -> float:
 def process_and_vectorize(file_path: str, filename: str, session_id: str) -> dict[str, Any]:
     """Extract and index a document, returning verifiable processing metadata."""
     path = Path(file_path)
+    session_ref = anonymize_identifier(session_id)
     text, extractor = _extract_text(path)
     cleaned = " ".join(text.split())
     if not cleaned:
         raise ValueError("The document contains no extractable text.")
+
+    security_assessment = assess_prompt_injection(cleaned)
+    if not security_assessment.allowed:
+        log_event(
+            logger,
+            logging.WARNING,
+            "document_prompt_injection_detected",
+            session_ref=session_ref,
+            filename=Path(filename).name,
+            risk=security_assessment.risk,
+            score=security_assessment.score,
+            reason_codes=list(security_assessment.reason_codes),
+        )
+        raise PromptInjectionDetected(security_assessment)
 
     document_id = f"DOC-{uuid4().hex[:12].upper()}"
     chunks = _chunk_text(cleaned)
@@ -89,6 +109,18 @@ def process_and_vectorize(file_path: str, filename: str, session_id: str) -> dic
     with _INDEX_LOCK:
         _DOCUMENTS.setdefault(session_id, []).extend(entries)
 
+    log_event(
+        logger,
+        logging.INFO,
+        "document_index_updated",
+        session_ref=session_ref,
+        document_id=document_id,
+        filename=Path(filename).name,
+        extractor=extractor,
+        word_count=len(cleaned.split()),
+        chunk_count=len(entries),
+    )
+
     return {
         "status": "indexed",
         "index_type": "local_lexical_cosine",
@@ -99,6 +131,7 @@ def process_and_vectorize(file_path: str, filename: str, session_id: str) -> dic
         "word_count": len(cleaned.split()),
         "chunk_count": len(entries),
         "indexed_at": indexed_at,
+        "security_assessment": security_assessment.to_dict(),
     }
 
 
@@ -109,7 +142,11 @@ def retrieve_relevant_chunks(session_id: str, query: str, *, limit: int = 4) -> 
         entries = list(_DOCUMENTS.get(session_id, []))
 
     ranked = []
+    excluded_security_chunks = 0
     for entry in entries:
+        if not assess_prompt_injection(entry["text"]).allowed:
+            excluded_security_chunks += 1
+            continue
         score = _cosine_similarity(query_terms, entry["term_counts"])
         if score > 0:
             ranked.append(
@@ -121,7 +158,20 @@ def retrieve_relevant_chunks(session_id: str, query: str, *, limit: int = 4) -> 
                     "text": entry["text"],
                 }
             )
-    return sorted(ranked, key=lambda item: item["score"], reverse=True)[:limit]
+    selected = sorted(ranked, key=lambda item: item["score"], reverse=True)[:limit]
+    log_event(
+        logger,
+        logging.DEBUG,
+        "document_retrieval_completed",
+        session_ref=anonymize_identifier(session_id),
+        query_chars=len(query),
+        indexed_chunk_count=len(entries),
+        matching_chunk_count=len(ranked),
+        returned_chunk_count=len(selected),
+        excluded_security_chunk_count=excluded_security_chunks,
+        limit=limit,
+    )
+    return selected
 
 
 def get_document_count(session_id: str) -> int:
