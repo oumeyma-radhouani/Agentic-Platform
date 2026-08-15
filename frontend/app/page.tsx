@@ -5,11 +5,10 @@ import {
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
   Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText,
-  Eye, Download, X, AlertTriangle, Euro
+  Eye, Download, X, AlertTriangle, Euro, LogOut, UserRound, LockKeyhole
 } from "lucide-react";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
-const SESSION_ID = "executive_dashboard_session"; 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const POWER_BI_EMBED_URL = process.env.NEXT_PUBLIC_POWER_BI_EMBED_URL || "";
 
 type ModuleReadiness = Record<string, { ready: boolean; reason?: string | null; index_type?: string }>;
@@ -22,7 +21,20 @@ type AnalysisRecord = {
   data: any;
 };
 
+type AuthenticatedUser = {
+  id: string;
+  username: string;
+  display_name: string;
+  role: "admin" | "member";
+};
+
 export default function Dashboard() {
+  const [authStatus, setAuthStatus] = useState<"checking" | "anonymous" | "authenticated">("checking");
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"RAPPORTS" | "HISTORIQUE" | "DASHBOARDS">("RAPPORTS");
   
   const [backendStatus, setBackendStatus] = useState("Connexion...");
@@ -46,25 +58,6 @@ export default function Dashboard() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try {
-      const savedHistory = localStorage.getItem('nova_analysesHistory');
-      if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
-      
-      const savedBatch = localStorage.getItem('nova_batchResultsSummary');
-      if (savedBatch) setBatchResults(JSON.parse(savedBatch));
-      
-      const savedAudio = localStorage.getItem('nova_audioResult');
-      if (savedAudio) {
-        const parsedAudio = JSON.parse(savedAudio);
-        setAudioResult(typeof parsedAudio === "string" ? { transcript: parsedAudio, provider: "legacy", deployment: "unknown" } : parsedAudio);
-      }
-      
-      const savedRag = localStorage.getItem('nova_ragResult');
-      if (savedRag) setRagResult(JSON.parse(savedRag));
-    } catch (e) {
-      console.error("Erreur lors de la lecture du cache:", e);
-    }
-
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
       .then((data) => {
@@ -74,18 +67,62 @@ export default function Dashboard() {
       })
       .catch(() => setBackendStatus("Déconnecté"));
 
-    fetch(`${API_BASE_URL}/api/chat/history?session_id=${SESSION_ID}`)
-      .then((res) => res.json())
+    fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
+      .then(async (res) => {
+        if (res.status === 401) return null;
+        if (!res.ok) throw new Error("Authentication service unavailable");
+        return res.json();
+      })
       .then((data) => {
-        if (data.success && data.messages && data.messages.length > 0) {
-          setChatMessages(data.messages);
+        if (data?.authenticated && data.user) {
+          setCurrentUser(data.user);
+          setAuthStatus("authenticated");
+        } else {
+          setAuthStatus("anonymous");
         }
       })
-      .catch((err) => console.error("Impossible de charger l'historique", err));
+      .catch(() => {
+        setLoginError("Le service d'authentification est indisponible. Vérifiez MONGO_URI et le backend.");
+        setAuthStatus("anonymous");
+      });
   }, []);
 
   useEffect(() => {
-    if (batchResults) {
+    if (!currentUser) return;
+    const cachePrefix = `nova_${currentUser.id}`;
+    setBatchResults(null);
+    setAudioResult(null);
+    setRagResult(null);
+    setAnalysesHistory([]);
+    try {
+      const savedHistory = localStorage.getItem(`${cachePrefix}_analysesHistory`);
+      if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
+
+      const savedBatch = localStorage.getItem(`${cachePrefix}_batchResultsSummary`);
+      if (savedBatch) setBatchResults(JSON.parse(savedBatch));
+
+      const savedAudio = localStorage.getItem(`${cachePrefix}_audioResult`);
+      if (savedAudio) {
+        const parsedAudio = JSON.parse(savedAudio);
+        setAudioResult(typeof parsedAudio === "string" ? { transcript: parsedAudio, provider: "legacy", deployment: "unknown" } : parsedAudio);
+      }
+
+      const savedRag = localStorage.getItem(`${cachePrefix}_ragResult`);
+      if (savedRag) setRagResult(JSON.parse(savedRag));
+    } catch (error) {
+      console.error("Erreur lors de la lecture du cache:", error);
+    }
+
+    fetch(`${API_BASE_URL}/api/chat/history`, { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.messages?.length > 0) setChatMessages(data.messages);
+      })
+      .catch((error) => console.error("Impossible de charger l'historique", error));
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (batchResults && currentUser) {
       const summaryOnly = {
         ...batchResults,
         normalized_records: [],
@@ -94,20 +131,20 @@ export default function Dashboard() {
         errors: (batchResults.errors || []).slice(0, 20),
         records_omitted_from_browser_cache: true,
       };
-      localStorage.setItem('nova_batchResultsSummary', JSON.stringify(summaryOnly));
+      localStorage.setItem(`nova_${currentUser.id}_batchResultsSummary`, JSON.stringify(summaryOnly));
     }
-  }, [batchResults]);
+  }, [batchResults, currentUser]);
 
   useEffect(() => {
-    if (audioResult) localStorage.setItem('nova_audioResult', JSON.stringify(audioResult));
-  }, [audioResult]);
+    if (audioResult && currentUser) localStorage.setItem(`nova_${currentUser.id}_audioResult`, JSON.stringify(audioResult));
+  }, [audioResult, currentUser]);
 
   useEffect(() => {
-    if (ragResult) localStorage.setItem('nova_ragResult', JSON.stringify(ragResult));
-  }, [ragResult]);
+    if (ragResult && currentUser) localStorage.setItem(`nova_${currentUser.id}_ragResult`, JSON.stringify(ragResult));
+  }, [ragResult, currentUser]);
 
   useEffect(() => {
-    if (analysesHistory.length > 0) {
+    if (analysesHistory.length > 0 && currentUser) {
       const compactHistory = analysesHistory.map((record) => record.type === "batch" ? {
         ...record,
         data: {
@@ -120,9 +157,9 @@ export default function Dashboard() {
           records_omitted_from_browser_cache: true,
         }
       } : record);
-      localStorage.setItem('nova_analysesHistory', JSON.stringify(compactHistory));
+      localStorage.setItem(`nova_${currentUser.id}_analysesHistory`, JSON.stringify(compactHistory));
     }
-  }, [analysesHistory]);
+  }, [analysesHistory, currentUser]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -132,6 +169,64 @@ export default function Dashboard() {
     setFile(null);
   }, [activeTask]);
 
+  const resetAuthenticatedState = () => {
+    setCurrentUser(null);
+    setAuthStatus("anonymous");
+    setBatchResults(null);
+    setAudioResult(null);
+    setRagResult(null);
+    setAnalysesHistory([]);
+    setChatMessages([
+      { sender: "copilot", text: "Bonjour. Je suis NOVA. Je peux vous aider à comprendre la qualité, les métriques et les enrichissements de vos données." }
+    ]);
+  };
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = response.status === 401
+          ? "Nom d'utilisateur ou mot de passe incorrect."
+          : response.status === 429
+            ? "Trop de tentatives. Réessayez dans 15 minutes."
+            : response.status === 503
+              ? "Le service d'authentification est indisponible. Vérifiez MONGO_URI et le backend."
+              : data.detail || "Connexion impossible.";
+        throw new Error(message);
+      }
+      setCurrentUser(data.user);
+      setAuthStatus("authenticated");
+      setLoginPassword("");
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Connexion impossible.");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      resetAuthenticatedState();
+      setLoginUsername("");
+      setLoginPassword("");
+      setLoginError("");
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
@@ -140,13 +235,12 @@ export default function Dashboard() {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("session_id", SESSION_ID);
 
     try {
       const currentDate = new Date().toLocaleString("fr-FR", { hour: '2-digit', minute:'2-digit', day: '2-digit', month: 'short' });
 
       if (activeTask === "batch") {
-        const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", body: formData });
+        const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", credentials: "include", body: formData });
         if (!res.ok) {
           const error = await res.json().catch(() => ({}));
           throw new Error(error.detail || "Erreur serveur");
@@ -155,10 +249,14 @@ export default function Dashboard() {
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement ${data.data.run_info.status} : ${data.data.data_quality.total_valid} lignes valides, ${data.data.data_quality.enrichment_succeeded} enrichies et ${data.data.data_quality.predictions_review_required} à revoir.` }]);
+        const flaggedCount = data.data.security_alert?.flagged_record_count || 0;
+        const securityNotice = flaggedCount > 0
+          ? ` Avertissement : ${flaggedCount} retour(s) ont été signalés par le contrôle anti-injection et placés dans la file de revue.`
+          : "";
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement ${data.data.run_info.status} : ${data.data.data_quality.total_valid} lignes valides, ${data.data.data_quality.enrichment_succeeded} enrichies et ${data.data.data_quality.total_review_required ?? data.data.data_quality.predictions_review_required} à revoir.${securityNotice}` }]);
       
       } else if (activeTask === "audio") {
-        const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", body: formData });
+        const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", credentials: "include", body: formData });
         if (!res.ok) {
           const error = await res.json().catch(() => ({}));
           throw new Error(error.detail || "Erreur serveur");
@@ -170,7 +268,7 @@ export default function Dashboard() {
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Transcription terminée via le déploiement ${data.deployment}.` }]);
       
       } else if (activeTask === "rag") {
-        const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", body: formData });
+        const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", credentials: "include", body: formData });
         if (!res.ok) {
           const error = await res.json().catch(() => ({}));
           throw new Error(error.detail || "Erreur serveur");
@@ -200,10 +298,16 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText, session_id: SESSION_ID })
+        body: JSON.stringify({ message: userText })
       });
       const data = await res.json();
+      if (res.status === 401) {
+        resetAuthenticatedState();
+        throw new Error("Session expirée");
+      }
+      if (!res.ok) throw new Error(data.detail || "Erreur serveur");
       setChatMessages(prev => [...prev, { sender: "copilot", text: data.response }]);
     } catch (error) {
       setChatMessages(prev => [...prev, { sender: "copilot", text: "Je rencontre des difficultés pour me connecter au réseau neuronal." }]);
@@ -223,6 +327,7 @@ export default function Dashboard() {
         normalized_records: record.data.normalized_records,
         enriched_records: record.data.enriched_records,
         review_queue: record.data.review_queue,
+        security_alert: record.data.security_alert,
         rejected_records: record.data.rejected_records,
         evidence_insights: record.data.evidence_insights,
         errors: record.data.errors,
@@ -264,6 +369,93 @@ export default function Dashboard() {
   };
 
   const activeRecord = getActiveRecord();
+
+  if (authStatus === "checking") {
+    return (
+      <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
+        <div className="flex items-center gap-3 text-sm font-semibold text-white/80">
+          <Sparkles size={20} className="text-[#f37021] animate-pulse" />
+          Vérification de la session NOVA…
+        </div>
+      </div>
+    );
+  }
+
+  if (authStatus === "anonymous") {
+    return (
+      <div className="min-h-screen bg-[#020617] relative overflow-hidden flex items-center justify-center p-6 font-sans">
+        <div className="absolute inset-0 bg-cover bg-center opacity-70" style={{ backgroundImage: "url('/background_gradiant.jpg')" }} />
+        <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]" />
+        <main className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+          <div className="bg-slate-900 px-8 py-7 text-white">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-md">
+                <Sparkles size={21} className="text-[#f37021]" />
+              </div>
+              <div>
+                <p className="font-black tracking-[0.22em] text-xl">NOVA</p>
+                <p className="text-[10px] text-white/60 uppercase tracking-widest">Data Intelligence Platform</p>
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold">Bienvenue</h1>
+            <p className="text-sm text-white/65 mt-2">Connectez-vous pour accéder à vos analyses et documents.</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="px-8 py-8 space-y-5">
+            <div>
+              <label htmlFor="username" className="block text-xs font-bold text-slate-700 mb-2">Nom d'utilisateur</label>
+              <div className="relative">
+                <UserRound size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="username"
+                  name="username"
+                  autoComplete="username"
+                  required
+                  value={loginUsername}
+                  onChange={(event) => setLoginUsername(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#2353a4]/30 focus:border-[#2353a4]"
+                  placeholder="votre.nom"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-xs font-bold text-slate-700 mb-2">Mot de passe</label>
+              <div className="relative">
+                <LockKeyhole size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-[#2353a4]/30 focus:border-[#2353a4]"
+                  placeholder="••••••••••"
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <div role="alert" className="flex gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-relaxed">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loginLoading || !loginUsername.trim() || !loginPassword}
+              className="w-full rounded-xl bg-[#2353a4] hover:bg-[#1a4082] disabled:bg-slate-300 text-white py-3 text-sm font-bold transition-colors shadow-lg shadow-blue-900/15"
+            >
+              {loginLoading ? "Connexion…" : "Se connecter"}
+            </button>
+            <p className="text-[11px] text-center text-slate-400">Les comptes sont créés par un administrateur NOVA.</p>
+          </form>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen w-full font-sans overflow-hidden relative bg-[#020617]">
@@ -357,13 +549,24 @@ export default function Dashboard() {
                     </div>
                   )}
 
+                  {viewingRecord.data.security_alert?.detected && (
+                    <div role="alert" className="mt-6 rounded-xl border border-rose-300 bg-rose-50 p-4 text-rose-900">
+                      <p className="font-extrabold text-xs uppercase tracking-wide flex items-center gap-2">
+                        <AlertTriangle size={16} /> Contenu potentiellement malveillant signalé
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed">
+                        {viewingRecord.data.security_alert.flagged_record_count} retour(s) ont été isolés du traitement ML et ajoutés à la file de revue. Ce signal nécessite une vérification humaine et ne prouve pas à lui seul une attaque.
+                      </p>
+                    </div>
+                  )}
+
                   {viewingRecord.data.review_queue?.length > 0 && (
                     <div className="mt-6">
                       <p className="font-bold text-amber-800 uppercase text-xs tracking-wide border-b pb-2 mb-3">File de revue ({viewingRecord.data.review_queue.length})</p>
                       <div className="space-y-3">
                         {viewingRecord.data.review_queue.slice(0, 10).map((item: any) => (
                           <div key={item.feedback_id} className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs">
-                            <p className="font-bold text-slate-800">{item.feedback_id} • {item.predicted_theme_id}</p>
+                            <p className="font-bold text-slate-800">{item.feedback_id} • {item.predicted_theme_id || "NON ANALYSÉ"}</p>
                             <p className="mt-1 text-slate-600">{item.comment}</p>
                             <p className="mt-2 text-amber-800">Motif : {item.review_reason}</p>
                           </div>
@@ -416,9 +619,19 @@ export default function Dashboard() {
             <span className={`w-1.5 h-1.5 rounded-full shadow-sm ${backendStatus === "Opérationnel" ? "bg-emerald-400" : backendStatus === "API seule" ? "bg-amber-400" : "bg-rose-400"}`}></span>
             IA: {backendStatus}
           </div>
-          <div className="w-7 h-7 rounded-full bg-slate-300 overflow-hidden cursor-pointer border border-white/20 shadow-sm">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Manager" alt="Profil" />
+          <div className="hidden md:flex items-center gap-2 text-right">
+            <div>
+              <p className="text-[11px] font-bold leading-tight">{currentUser?.display_name}</p>
+              <p className="text-[9px] text-white/50 uppercase tracking-wider">{currentUser?.role}</p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#2353a4] flex items-center justify-center border border-white/20 shadow-sm text-xs font-black">
+              {(currentUser?.display_name || currentUser?.username || "N").slice(0, 1).toUpperCase()}
+            </div>
           </div>
+          <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 hover:bg-white/20 px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors" title="Se déconnecter">
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Déconnexion</span>
+          </button>
         </div>
       </header>
 
@@ -526,7 +739,7 @@ export default function Dashboard() {
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Enrichissements ML</p>
                             <p className="text-xl font-extrabold text-[#f37021] mt-1">{batchResults.data_quality?.predictions_ready || 0}</p>
-                            <p className="text-[9px] text-slate-500 font-bold mt-1">À revoir : {batchResults.data_quality?.predictions_review_required || 0} • Échecs : {batchResults.data_quality?.enrichment_failed || 0}</p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">À revoir : {batchResults.data_quality?.total_review_required ?? batchResults.data_quality?.predictions_review_required ?? 0} • Échecs : {batchResults.data_quality?.enrichment_failed || 0}</p>
                           </div>
                         </div>
 
@@ -552,6 +765,20 @@ export default function Dashboard() {
                               {(batchResults.evidence_insights?.findings || []).length === 0 && <li>Pas assez de prédictions valides pour produire un constat.</li>}
                            </ul>
                         </div>
+
+                        {batchResults.security_alert?.detected && (
+                          <div role="alert" className="bg-rose-50 p-4 rounded-lg border-2 border-rose-300 text-sm text-rose-900 mb-4 shadow-sm">
+                            <p className="font-extrabold mb-2 flex items-center gap-2">
+                              <AlertTriangle size={18} /> Avertissement de sécurité — contenu signalé
+                            </p>
+                            <p className="text-xs leading-relaxed">
+                              {batchResults.security_alert.flagged_record_count} retour(s) présentent des indicateurs possibles d'injection de prompt. Ils ont été conservés dans les données source, exclus de l'enrichissement ML et ajoutés à la file de revue pour vérification humaine.
+                            </p>
+                            <p className="text-[10px] mt-2 text-rose-700 font-semibold">
+                              Un signalement n'est pas une preuve d'attaque : vérifiez les éléments concernés dans l'aperçu détaillé.
+                            </p>
+                          </div>
+                        )}
                         
                         <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                           <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">

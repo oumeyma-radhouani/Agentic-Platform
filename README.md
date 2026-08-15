@@ -43,6 +43,26 @@ To use audio transcription, also configure a compatible deployment:
 AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT="your-transcription-deployment"
 ```
 
+Authentication requires MongoDB. Add your local MongoDB or free MongoDB Atlas
+connection string to `.env` (never commit the real value):
+
+```dotenv
+MONGO_URI="mongodb+srv://username:password@cluster.example.mongodb.net/?retryWrites=true&w=majority"
+MONGO_DATABASE="nova_db"
+NOVA_SESSION_HOURS="12"
+NOVA_SESSION_COOKIE_SECURE="false"
+```
+
+URL-encode special characters in the MongoDB username or password. Then create
+the first account from the project directory; the password is requested securely
+and does not appear in shell history:
+
+```powershell
+Set-Location .\backend
+& ..\.venv\Scripts\python.exe .\create_user.py --username admin --display-name "NOVA Admin" --role admin
+Set-Location ..
+```
+
 To embed the Power BI tab, create `frontend/.env.local`:
 
 ```dotenv
@@ -68,6 +88,21 @@ npm.cmd run dev
 Open <http://localhost:3000>. A ready-to-upload example is available in
 `test_payload.json`.
 
+## Authentication
+
+NOVA has no public sign-up route. Administrators create accounts with
+`backend/create_user.py`. Passwords are salted and hashed with scrypt; MongoDB
+stores only password hashes and SHA-256 hashes of random session tokens. The raw
+session token is kept in an `HttpOnly`, `SameSite=Lax` browser cookie, expires by
+default after 12 hours, and is deleted from MongoDB on logout. Repeated failed
+logins are temporarily rate-limited.
+
+All batch, chat, audio, and document endpoints require login. Their server-side
+scope is derived from the authenticated user, so a browser cannot select another
+user's scope by changing a request field. MongoDB TTL indexes automatically remove
+expired sessions and old login-attempt records. For HTTPS deployment, set
+`NOVA_SESSION_COOKIE_SECURE="true"`.
+
 ## Batch response
 
 The `/api/batch` response includes:
@@ -85,6 +120,26 @@ Review-required predictions are retained for data-scientist inspection but are
 excluded from theme aggregation and analytical findings. Common emails, phone
 numbers, payment-card patterns, and IP addresses are masked before comments are
 sent to the enrichment model; the canonical record retains the original text.
+
+## Local prompt-injection protection
+
+NOVA uses a free deterministic detector (`local-rules-v1`) before untrusted text
+reaches the model. It normalizes Unicode, removes zero-width characters, folds a
+small set of common cross-script lookalikes, detects suspicious encoded blocks,
+and scores instruction override, prompt extraction, role impersonation, and data
+exfiltration patterns in English and French.
+
+- Flagged feedback remains in `normalized_records`, is not sent for enrichment,
+  and is added to `review_queue` with a payload-safe security assessment.
+- Flagged documents are rejected before indexing.
+- Flagged chat requests are blocked before an Azure model call or history write.
+- Retrieved chunks are checked again before being added as reference data.
+- Batch metrics and document excerpts are passed as untrusted user reference data,
+  never as system instructions. Raw comments are excluded from assistant context.
+
+This detector is a transparent first layer, not proof that prompt injection is
+impossible. Its decisions and reason codes should be reviewed for false positives,
+and model permissions must remain restricted independently of the detector.
 
 ## Other modules
 
@@ -105,7 +160,41 @@ Upload limits are 10 MB for feedback batches, 20 MB for documents, and 25 MB
 for audio. The browser cache retains only compact batch summaries; download the
 full batch JSON during the active run when row-level artifacts are required.
 
+## Logging
+
+The backend logs request lifecycles and the batch, chat, audio, and document
+workflows with status, counts, identifiers, and processing times. It does not log
+feedback comments, prompts, transcripts, document text, API keys, or database
+connection strings. Session IDs are replaced with stable one-way references.
+
+Configure verbosity and output format in `.env`:
+
+```dotenv
+NOVA_LOG_LEVEL="INFO"
+NOVA_LOG_FORMAT="text"
+```
+
+Use `NOVA_LOG_FORMAT="json"` for one structured JSON object per line, which is
+easier to ingest into a centralized logging platform. Every HTTP response also
+includes an `X-Request-ID` header for correlation.
+
 ## Tests
+
+Run the complete local verification suite from the project directory:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\test_project.ps1
+```
+
+This runs backend unit/API tests, frontend linting, a production frontend build,
+and Git whitespace validation. The process-scoped execution-policy bypass does not
+change the system policy. To omit the production build during a quick check, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\test_project.ps1 -SkipFrontendBuild
+```
+
+To run only the backend tests:
 
 ```powershell
 Set-Location .\backend

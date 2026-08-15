@@ -9,12 +9,16 @@ a database or object store keyed by batch ID.
 from __future__ import annotations
 
 import json
+import logging
 from threading import RLock
 from typing import Any, Mapping
+
+from src.backend.logging_config import anonymize_identifier, log_event
 
 
 _LOCK = RLock()
 _BATCH_CONTEXTS: dict[str, dict[str, Any]] = {}
+logger = logging.getLogger(__name__)
 
 
 def store_batch_context(session_id: str, result: Mapping[str, Any]) -> None:
@@ -23,9 +27,8 @@ def store_batch_context(session_id: str, result: Mapping[str, Any]) -> None:
     review_examples = [
         {
             "feedback_id": row.get("feedback_id"),
-            "comment": row.get("comment"),
             "predicted_theme_id": row.get("predicted_theme_id"),
-            "prediction_evidence": row.get("prediction_evidence"),
+            "predicted_sentiment": row.get("predicted_sentiment"),
         }
         for row in enriched
         if row.get("prediction_needs_review")
@@ -35,7 +38,6 @@ def store_batch_context(session_id: str, result: Mapping[str, Any]) -> None:
             "feedback_id": row.get("feedback_id"),
             "source": row.get("source"),
             "score": row.get("score"),
-            "comment": row.get("comment"),
             "predicted_theme_id": row.get("predicted_theme_id"),
             "predicted_sentiment": row.get("predicted_sentiment"),
         }
@@ -56,6 +58,17 @@ def store_batch_context(session_id: str, result: Mapping[str, Any]) -> None:
     }
     with _LOCK:
         _BATCH_CONTEXTS[session_id] = context
+    log_event(
+        logger,
+        logging.INFO,
+        "batch_context_stored",
+        session_ref=anonymize_identifier(session_id),
+        batch_id=context["batch_id"],
+        status=context["status"],
+        representative_record_count=len(representative_records),
+        review_example_count=len(review_examples),
+        error_count=len(context["errors"]),
+    )
 
 
 def get_batch_context(session_id: str) -> dict[str, Any] | None:
@@ -65,7 +78,7 @@ def get_batch_context(session_id: str) -> dict[str, Any] | None:
 
 
 def format_batch_context(session_id: str, *, max_chars: int = 14000) -> str | None:
-    """Serialize bounded, verified context for an assistant system message."""
+    """Serialize bounded metrics and labels without raw customer comments."""
     context = get_batch_context(session_id)
     if context is None:
         return None

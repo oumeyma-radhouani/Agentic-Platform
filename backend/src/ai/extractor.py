@@ -7,6 +7,7 @@ import json
 from src.ai.azure_client import create_chat_completion
 from src.ai.azure_client import get_deployment_name
 from src.backend.schema import ENRICHMENT_SCHEMA_VERSION, FeedbackEnrichment
+from src.backend.prompt_security import require_safe_prompt
 
 
 PROMPT_VERSION = "feedback-enrichment-v1"
@@ -31,6 +32,7 @@ def classify_nps(score: int) -> str:
 
 def analyze_feedback(client_id: str, score: int, comment: str) -> dict:
     """Create a schema-validated prediction for one feedback record."""
+    require_safe_prompt(comment)
     response_content = create_chat_completion(
         [
             {

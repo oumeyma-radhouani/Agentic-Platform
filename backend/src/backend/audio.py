@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from src.ai.azure_client import get_azure_client, is_azure_configured
+from src.backend.logging_config import log_event
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_transcription_deployment() -> str:
@@ -27,6 +33,7 @@ def transcribe_audio(file_path: str, *, language: str | None = None) -> dict[str
         )
 
     path = Path(file_path)
+    started = perf_counter()
     kwargs: dict[str, Any] = {"model": deployment}
     if language:
         kwargs["language"] = language.casefold().split("-")[0]
@@ -38,9 +45,21 @@ def transcribe_audio(file_path: str, *, language: str | None = None) -> dict[str
         text = response
     if not text:
         raise RuntimeError("Azure returned an empty transcription.")
+    transcript = str(text).strip()
+    log_event(
+        logger,
+        logging.INFO,
+        "azure_audio_transcription_completed",
+        deployment=deployment,
+        file_type=path.suffix.casefold(),
+        size_bytes=path.stat().st_size,
+        language=kwargs.get("language"),
+        transcript_chars=len(transcript),
+        duration_ms=round((perf_counter() - started) * 1000),
+    )
     return {
         "status": "complete",
-        "transcript": str(text).strip(),
+        "transcript": transcript,
         "provider": "azure_openai",
         "deployment": deployment,
         "filename": path.name,
