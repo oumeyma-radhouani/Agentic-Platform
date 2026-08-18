@@ -1,404 +1,654 @@
 {
     "records": [
         {
-            "feedback_id": "FBK-76D6FC9C",
-            "customer_id": "CUST-3065",
+            "feedback_id": "FBK-99276112",
+            "customer_id": "CUST-3655",
             "source": "Campagne d'Appels Satisfaction",
-            "score": 0,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
+            "score": 9,
+            "comment": "Excellent accompagnement de le service commercial lors de la migration des bases de données. Everything worked exactly as promised, preventing downtime.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 7436,
+                "account_manager": "Marc D."
+            }
         },
         {
-            "feedback_id": "FBK-428910E5",
-            "customer_id": "CUST-6320",
+            "feedback_id": "FBK-09A20915",
+            "customer_id": "CUST-4658",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 9,
+            "comment": "The transition to the new système de backup was seamless. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 498027,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-F472B00D",
+            "customer_id": "CUST-2980",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "Excellent accompagnement de le support de niveau 2 lors de la migration des bases de données. Documentation requires some trial and error.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 201551,
+                "account_manager": "Non Assigné"
+            }
+        },
+        {
+            "feedback_id": "FBK-69983891",
+            "customer_id": "CUST-7038",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. This was never communicated during the sales process.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 2691,
+                "account_manager": "Non Assigné"
+            }
+        },
+        {
+            "feedback_id": "FBK-6F16BA3F",
+            "customer_id": "CUST-1742",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 7,
+            "comment": "Service correct, mais l'intégration avec CRM nécessite encore des ajustements. Temps d'attente inacceptable au support ce matin.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 116890,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-7E312B51",
+            "customer_id": "CUST-7845",
+            "source": "Historique Chat Client",
+            "score": 10,
+            "comment": "Incident sur système de backup résolu rapidement. Le technicien a parfaitement compris notre architecture.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 210836,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-0B9F1F0C",
+            "customer_id": "CUST-7734",
+            "source": "Historique Chat Client",
+            "score": 8,
+            "comment": "L'installation s'est bien passée, on attend de voir la stabilité de CRM sur le long terme.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 107837,
+                "account_manager": "Sarah K."
+            }
+        },
+        {
+            "feedback_id": "FBK-1655BF77",
+            "customer_id": "CUST-1177",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre ERP s'est fait sans coupure. Temps d'attente inacceptable au support ce matin.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 11143,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-2E40551B",
+            "customer_id": "CUST-7536",
+            "source": "Historique Chat Client",
+            "score": 7,
+            "comment": "Service correct, mais l'intégration avec API gateway nécessite encore des ajustements. The automated insights reduced manual work by 40%.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 14932,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-C6630DA5",
+            "customer_id": "CUST-2058",
+            "source": "Ticket Support SI",
+            "score": 9,
+            "comment": "The transition to the new système de backup was seamless. Documentation requires some trial and error.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 3267,
+                "account_manager": "Non Assigné"
+            }
+        },
+        {
+            "feedback_id": "FBK-9AC27CC7",
+            "customer_id": "CUST-1785",
+            "source": "Historique Chat Client",
+            "score": 6,
+            "comment": "We experienced an unexpected billing increase due to limits on Agent AI. Documentation requires some trial and error.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 87182,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-F69A5ED5",
+            "customer_id": "CUST-8683",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 1,
+            "comment": "La migration a entraîné une perte temporaire de données de notre système de backup. This was never communicated during the sales process.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 2140,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-FE2DDC84",
+            "customer_id": "CUST-8868",
             "source": "Campagne d'Appels Satisfaction",
             "score": 6,
-            "comment": "We experienced a 15% increase in our monthly billing due to hidden API limits. This was never communicated during the sales process. Very disappointing.",
-            "language": "EN"
+            "comment": "We experienced an unexpected billing increase due to limits on CRM. L'absence de communication proactive est décevante.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 95831,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-EE991D75",
-            "customer_id": "CUST-1197",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 1,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-605FBD7B",
-            "customer_id": "CUST-5461",
+            "feedback_id": "FBK-FA2B95D9",
+            "customer_id": "CUST-5999",
             "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre Agent AI s'est fait sans coupure. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 95647,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-EEB9661E",
+            "customer_id": "CUST-6574",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 5,
+            "comment": "Plusieurs coupures critiques sur le service de CRM cette semaine. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 14780,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-CC972317",
+            "customer_id": "CUST-2523",
+            "source": "Campagne d'Appels Satisfaction",
             "score": 3,
-            "comment": "The support engineer assigned to our ticket did not seem to understand our Kubernetes deployment. We had to explain our infrastructure three times.",
-            "language": "EN"
+            "comment": "La migration a entraîné une perte temporaire de données de notre CRM. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 17080,
+                "account_manager": "Marc D."
+            }
         },
         {
-            "feedback_id": "FBK-A26E1532",
-            "customer_id": "CUST-8894",
-            "source": "Historique Chat Client",
-            "score": 2,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-A7D3D33F",
-            "customer_id": "CUST-9870",
-            "source": "Historique Chat Client",
-            "score": 10,
-            "comment": "Incident de niveau 1 résolu en moins de 45 minutes. Le technicien a parfaitement compris notre architecture hybride.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-45608617",
-            "customer_id": "CUST-6774",
+            "feedback_id": "FBK-62557FFA",
+            "customer_id": "CUST-1222",
             "source": "Campagne d'Appels Satisfaction",
             "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
+            "comment": "The transition to the new Kubernetes cluster was seamless. This was never communicated during the sales process.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 4189,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-7CD8AAD0",
-            "customer_id": "CUST-9854",
+            "feedback_id": "FBK-692B5805",
+            "customer_id": "CUST-3215",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 9,
+            "comment": "Excellent accompagnement de le service commercial lors de la migration des bases de données. This was never communicated during the sales process.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 7625,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-02C4B4FB",
+            "customer_id": "CUST-6976",
             "source": "Ticket Support SI",
-            "score": 10,
-            "comment": "Outstanding support during our peak traffic season. The auto-scaling features worked exactly as promised, preventing any downtime.",
-            "language": "EN"
+            "score": 9,
+            "comment": "The transition to the new API gateway was seamless. Temps d'attente inacceptable au support ce matin.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 12676,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-1FEFF4AB",
-            "customer_id": "CUST-7251",
+            "feedback_id": "FBK-2EF3DD7F",
+            "customer_id": "CUST-2069",
             "source": "Campagne d'Appels Satisfaction",
-            "score": 2,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
+            "score": 8,
+            "comment": "Service correct, mais l'intégration avec système de backup nécessite encore des ajustements. Everything worked exactly as promised, preventing downtime.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 433149,
+                "account_manager": "Sarah K."
+            }
         },
         {
-            "feedback_id": "FBK-559EE33E",
+            "feedback_id": "FBK-37843630",
+            "customer_id": "CUST-5290",
+            "source": "Historique Chat Client",
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre CRM s'est fait sans coupure. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 71216,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-DE2FBACF",
+            "customer_id": "CUST-1194",
+            "source": "Ticket Support SI",
+            "score": 2,
+            "comment": "The engineer assigned did not seem to understand our infrastructure cloud deployment. L'absence de communication proactive est décevante.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 2448,
+                "account_manager": "Non Assigné"
+            }
+        },
+        {
+            "feedback_id": "FBK-526E3128",
+            "customer_id": "CUST-2328",
+            "source": "Ticket Support SI",
+            "score": 9,
+            "comment": "Incident sur Agent AI résolu rapidement. Le technicien a parfaitement compris notre architecture.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 98396,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-5D121F2F",
+            "customer_id": "CUST-5734",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 10,
+            "comment": "The transition to the new infrastructure cloud was seamless. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 13142,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-BB99B45D",
+            "customer_id": "CUST-1268",
+            "source": "Ticket Support SI",
+            "score": 3,
+            "comment": "We experienced an unexpected billing increase due to limits on Agent AI. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 18149,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-1302A67B",
+            "customer_id": "CUST-3856",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 3,
+            "comment": "The engineer assigned did not seem to understand our API gateway deployment. Documentation requires some trial and error.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 51093,
+                "account_manager": "Sarah K."
+            }
+        },
+        {
+            "feedback_id": "FBK-4AF75082",
+            "customer_id": "CUST-1944",
+            "source": "Campagne d'Appels Satisfaction",
+            "score": 5,
+            "comment": "La migration a entraîné une perte temporaire de données de notre infrastructure cloud. The automated insights reduced manual work by 40%.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 26364,
+                "account_manager": "Non Assigné"
+            }
+        },
+        {
+            "feedback_id": "FBK-74080615",
+            "customer_id": "CUST-2226",
+            "source": "Historique Chat Client",
+            "score": 8,
+            "comment": "L'installation s'est bien passée, on attend de voir la stabilité de infrastructure cloud sur le long terme.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 15368,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-0C5711F2",
+            "customer_id": "CUST-6159",
+            "source": "Historique Chat Client",
+            "score": 5,
+            "comment": "Plusieurs coupures critiques sur le service de ERP cette semaine. Everything worked exactly as promised, preventing downtime.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 28605,
+                "account_manager": "Amine T."
+            }
+        },
+        {
+            "feedback_id": "FBK-FE07C3B3",
             "customer_id": "CUST-6107",
             "source": "Ticket Support SI",
-            "score": 7,
-            "comment": "Average experience. The documentation for the new API endpoints is somewhat lacking and requires trial and error.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-E40AE941",
-            "customer_id": "CUST-8051",
-            "source": "Historique Chat Client",
-            "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-7FC4C0DB",
-            "customer_id": "CUST-4501",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-ED98088E",
-            "customer_id": "CUST-4462",
-            "source": "Historique Chat Client",
             "score": 8,
-            "comment": "L'installation s'est bien passée, on attend de voir la stabilité du réseau sur le long terme avant de déployer sur nos autres sites.",
-            "language": "FR"
+            "comment": "Service correct, mais l'intégration avec infrastructure cloud nécessite encore des ajustements. This was never communicated during the sales process.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 8719,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-97D7D41B",
-            "customer_id": "CUST-8205",
+            "feedback_id": "FBK-CDEEAED5",
+            "customer_id": "CUST-2623",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "The transition to the new API gateway was seamless. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Enterprise",
+                "arr_euros": 274368,
+                "account_manager": "Sarah K."
+            }
+        },
+        {
+            "feedback_id": "FBK-007ED73D",
+            "customer_id": "CUST-3575",
             "source": "Campagne d'Appels Satisfaction",
-            "score": 2,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
+            "score": 10,
+            "comment": "Incident sur API gateway résolu rapidement. Le technicien a parfaitement compris notre architecture.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 36711,
+                "account_manager": "Sarah K."
+            }
         },
         {
-            "feedback_id": "FBK-7E6D3F98",
-            "customer_id": "CUST-6908",
+            "feedback_id": "FBK-DC61FB09",
+            "customer_id": "CUST-4166",
             "source": "Ticket Support SI",
+            "score": 6,
+            "comment": "The engineer assigned did not seem to understand our système de backup deployment. This was never communicated during the sales process.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 4444,
+                "account_manager": "Julie L."
+            }
+        },
+        {
+            "feedback_id": "FBK-D2096941",
+            "customer_id": "CUST-4772",
+            "source": "Historique Chat Client",
             "score": 8,
-            "comment": "The initial setup went well, but we are still waiting for the custom dashboard features to be fully operational.",
-            "language": "EN"
+            "comment": "L'installation s'est bien passée, on attend de voir la stabilité de ERP sur le long terme.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 98546,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-C164F884",
-            "customer_id": "CUST-3860",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 1,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
+            "feedback_id": "FBK-92CD7388",
+            "customer_id": "CUST-4171",
+            "source": "Ticket Support SI",
+            "score": 10,
+            "comment": "The transition to the new CRM was seamless. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 77171,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-34232F39",
-            "customer_id": "CUST-5698",
+            "feedback_id": "FBK-A05C9F4F",
+            "customer_id": "CUST-1556",
             "source": "Campagne d'Appels Satisfaction",
             "score": 0,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
+            "comment": "We experienced an unexpected billing increase due to limits on infrastructure cloud. Everything worked exactly as promised, preventing downtime.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 66656,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-5F92C1B7",
-            "customer_id": "CUST-5300",
+            "feedback_id": "FBK-CA3E6A0D",
+            "customer_id": "CUST-1761",
             "source": "Campagne d'Appels Satisfaction",
             "score": 10,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
+            "comment": "The transition to the new infrastructure cloud was seamless. The automated insights reduced manual work by 40%.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 3954,
+                "account_manager": "Julie L."
+            }
         },
         {
-            "feedback_id": "FBK-4FA7B929",
-            "customer_id": "CUST-3229",
-            "source": "Ticket Support SI",
-            "score": 10,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-384E1461",
-            "customer_id": "CUST-9371",
-            "source": "Ticket Support SI",
-            "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-93D87C5A",
-            "customer_id": "CUST-5822",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 10,
-            "comment": "Outstanding support during our peak traffic season. The auto-scaling features worked exactly as promised, preventing any downtime.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-98381E2B",
-            "customer_id": "CUST-6394",
+            "feedback_id": "FBK-EE2C94D8",
+            "customer_id": "CUST-5283",
             "source": "Historique Chat Client",
-            "score": 10,
-            "comment": "L'équipe technique a été très réactive. Le déploiement de notre infrastructure cloud s'est fait sans coupure et dans le respect strict du SLA.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-F5B24461",
-            "customer_id": "CUST-6766",
-            "source": "Historique Chat Client",
-            "score": 5,
-            "comment": "We experienced a 15% increase in our monthly billing due to hidden API limits. This was never communicated during the sales process. Very disappointing.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-EC130A28",
-            "customer_id": "CUST-2868",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 4,
-            "comment": "The support engineer assigned to our ticket did not seem to understand our Kubernetes deployment. We had to explain our infrastructure three times.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-E19B744E",
-            "customer_id": "CUST-9296",
-            "source": "Historique Chat Client",
-            "score": 10,
-            "comment": "Outstanding support during our peak traffic season. The auto-scaling features worked exactly as promised, preventing any downtime.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-3FEDF411",
-            "customer_id": "CUST-8027",
-            "source": "Ticket Support SI",
-            "score": 10,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-01D2BA9F",
-            "customer_id": "CUST-9512",
-            "source": "Historique Chat Client",
-            "score": 1,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-52896504",
-            "customer_id": "CUST-6236",
-            "source": "Historique Chat Client",
-            "score": 4,
-            "comment": "We experienced a 15% increase in our monthly billing due to hidden API limits. This was never communicated during the sales process. Very disappointing.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-054008C6",
-            "customer_id": "CUST-9727",
-            "source": "Historique Chat Client",
-            "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-2CF1029A",
-            "customer_id": "CUST-4491",
-            "source": "Ticket Support SI",
-            "score": 10,
-            "comment": "L'équipe technique a été très réactive. Le déploiement de notre infrastructure cloud s'est fait sans coupure et dans le respect strict du SLA.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-5A673A3D",
-            "customer_id": "CUST-6326",
-            "source": "Ticket Support SI",
             "score": 9,
-            "comment": "Incident de niveau 1 résolu en moins de 45 minutes. Le technicien a parfaitement compris notre architecture hybride.",
-            "language": "FR"
+            "comment": "The transition to the new ERP was seamless. L'absence de communication proactive est décevante.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 95267,
+                "account_manager": "Sarah K."
+            }
         },
         {
-            "feedback_id": "FBK-52F19FDE",
-            "customer_id": "CUST-1890",
-            "source": "Campagne d'Appels Satisfaction",
+            "feedback_id": "FBK-1BACEBD4",
+            "customer_id": "CUST-6489",
+            "source": "Ticket Support SI",
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre CRM s'est fait sans coupure. Temps d'attente inacceptable au support ce matin.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 14382,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-CFD0BA7C",
+            "customer_id": "CUST-9638",
+            "source": "Ticket Support SI",
+            "score": 10,
+            "comment": "The transition to the new infrastructure cloud was seamless. This was never communicated during the sales process.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 50544,
+                "account_manager": "Sarah K."
+            }
+        },
+        {
+            "feedback_id": "FBK-3A8C2682",
+            "customer_id": "CUST-6078",
+            "source": "Historique Chat Client",
             "score": 3,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
+            "comment": "The engineer assigned did not seem to understand our ERP deployment. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 69006,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-B2D02C0D",
-            "customer_id": "CUST-9330",
-            "source": "Historique Chat Client",
-            "score": 5,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-53A3E6ED",
-            "customer_id": "CUST-4792",
-            "source": "Historique Chat Client",
-            "score": 7,
-            "comment": "The initial setup went well, but we are still waiting for the custom dashboard features to be fully operational.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-B9688252",
-            "customer_id": "CUST-8545",
-            "source": "Historique Chat Client",
-            "score": 7,
-            "comment": "Average experience. The documentation for the new API endpoints is somewhat lacking and requires trial and error.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-FC40C389",
-            "customer_id": "CUST-5319",
-            "source": "Ticket Support SI",
-            "score": 5,
-            "comment": "The support engineer assigned to our ticket did not seem to understand our Kubernetes deployment. We had to explain our infrastructure three times.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-D77812F3",
-            "customer_id": "CUST-8734",
+            "feedback_id": "FBK-D7ED613E",
+            "customer_id": "CUST-7886",
             "source": "Ticket Support SI",
             "score": 8,
-            "comment": "L'installation s'est bien passée, on attend de voir la stabilité du réseau sur le long terme avant de déployer sur nos autres sites.",
-            "language": "FR"
+            "comment": "Service correct, mais l'intégration avec système de backup nécessite encore des ajustements. Temps d'attente inacceptable au support ce matin.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 17445,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-C4C2EFF7",
-            "customer_id": "CUST-5092",
-            "source": "Historique Chat Client",
-            "score": 9,
-            "comment": "Incident de niveau 1 résolu en moins de 45 minutes. Le technicien a parfaitement compris notre architecture hybride.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-CD43161F",
-            "customer_id": "CUST-6198",
-            "source": "Historique Chat Client",
-            "score": 9,
-            "comment": "Incident de niveau 1 résolu en moins de 45 minutes. Le technicien a parfaitement compris notre architecture hybride.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-AF955753",
-            "customer_id": "CUST-6876",
-            "source": "Ticket Support SI",
-            "score": 8,
-            "comment": "L'installation s'est bien passée, on attend de voir la stabilité du réseau sur le long terme avant de déployer sur nos autres sites.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-1E5B1A90",
-            "customer_id": "CUST-1899",
-            "source": "Ticket Support SI",
-            "score": 9,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-FC1A8BDD",
-            "customer_id": "CUST-7041",
+            "feedback_id": "FBK-6C97BAA3",
+            "customer_id": "CUST-5688",
             "source": "Campagne d'Appels Satisfaction",
-            "score": 0,
-            "comment": "La migration a entraîné une perte temporaire de données de notre ERP. Temps d'attente inacceptable au support téléphonique de niveau 2 ce matin.",
-            "language": "FR"
+            "score": 8,
+            "comment": "Service correct, mais l'intégration avec CRM nécessite encore des ajustements. L'expertise de CloudShift est indéniable.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 45664,
+                "account_manager": "Julie L."
+            }
         },
         {
-            "feedback_id": "FBK-1C39DAE5",
-            "customer_id": "CUST-4727",
-            "source": "Ticket Support SI",
-            "score": 9,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
+            "feedback_id": "FBK-42DCAB29",
+            "customer_id": "CUST-2761",
+            "source": "Historique Chat Client",
+            "score": 6,
+            "comment": "La migration a entraîné une perte temporaire de données de notre CRM. L'absence de communication proactive est décevante.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 95546,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-392CEAFB",
-            "customer_id": "CUST-2642",
-            "source": "Ticket Support SI",
+            "feedback_id": "FBK-0A9B6EE0",
+            "customer_id": "CUST-8481",
+            "source": "Historique Chat Client",
             "score": 10,
-            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. L'expertise de CloudShift est indéniable.",
-            "language": "FR"
+            "comment": "Excellent accompagnement de notre account manager lors de la migration des bases de données. Temps d'attente inacceptable au support ce matin.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 22455,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-D121E237",
-            "customer_id": "CUST-3286",
+            "feedback_id": "FBK-79B3D357",
+            "customer_id": "CUST-2492",
             "source": "Campagne d'Appels Satisfaction",
             "score": 9,
-            "comment": "The transition to the new agentic platform was seamless. The automated insights have already reduced our manual reporting time by 40%.",
-            "language": "EN"
+            "comment": "The transition to the new Kubernetes cluster was seamless. Documentation requires some trial and error.",
+            "language": "EN",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 44020,
+                "account_manager": "Non Assigné"
+            }
         },
         {
-            "feedback_id": "FBK-355F4308",
-            "customer_id": "CUST-9842",
+            "feedback_id": "FBK-5239958B",
+            "customer_id": "CUST-9343",
             "source": "Campagne d'Appels Satisfaction",
-            "score": 9,
-            "comment": "Outstanding support during our peak traffic season. The auto-scaling features worked exactly as promised, preventing any downtime.",
-            "language": "EN"
+            "score": 10,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre infrastructure cloud s'est fait sans coupure. Temps d'attente inacceptable au support ce matin.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "SMB",
+                "arr_euros": 12424,
+                "account_manager": "Amine T."
+            }
         },
         {
-            "feedback_id": "FBK-518606FE",
-            "customer_id": "CUST-2128",
+            "feedback_id": "FBK-EBA63EE9",
+            "customer_id": "CUST-4324",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "Incident sur ERP résolu rapidement. Le technicien a parfaitement compris notre architecture.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 83861,
+                "account_manager": "Marc D."
+            }
+        },
+        {
+            "feedback_id": "FBK-19CE6486",
+            "customer_id": "CUST-5923",
+            "source": "Historique Chat Client",
+            "score": 9,
+            "comment": "L'équipe technique a été très réactive. Le déploiement de notre API gateway s'est fait sans coupure. L'absence de communication proactive est décevante.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 82564,
+                "account_manager": "Sarah K."
+            }
+        },
+        {
+            "feedback_id": "FBK-69B344C0",
+            "customer_id": "CUST-8685",
             "source": "Ticket Support SI",
-            "score": 1,
-            "comment": "The support engineer assigned to our ticket did not seem to understand our Kubernetes deployment. We had to explain our infrastructure three times.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-51398B31",
-            "customer_id": "CUST-1970",
-            "source": "Historique Chat Client",
-            "score": 7,
-            "comment": "The initial setup went well, but we are still waiting for the custom dashboard features to be fully operational.",
-            "language": "EN"
-        },
-        {
-            "feedback_id": "FBK-F8C486C1",
-            "customer_id": "CUST-8367",
-            "source": "Campagne d'Appels Satisfaction",
-            "score": 0,
-            "comment": "Plusieurs coupures critiques sur le service de backup cette semaine. L'absence de communication proactive de la part de l'équipe SI est inacceptable.",
-            "language": "FR"
-        },
-        {
-            "feedback_id": "FBK-40232767",
-            "customer_id": "CUST-5416",
-            "source": "Historique Chat Client",
-            "score": 4,
-            "comment": "Impossible de joindre le service commercial pour réajuster nos licences. Le portail en ligne renvoie systématiquement une erreur 500 depuis mardi.",
-            "language": "FR"
+            "score": 8,
+            "comment": "Service correct, mais l'intégration avec CRM nécessite encore des ajustements. Everything worked exactly as promised, preventing downtime.",
+            "language": "FR",
+            "operational_metadata": {
+                "segment": "Mid-Market",
+                "arr_euros": 44324,
+                "account_manager": "Non Assigné"
+            }
         }
     ]
 }

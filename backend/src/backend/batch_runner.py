@@ -28,7 +28,8 @@ from src.backend.privacy import redact_model_input
 from src.backend.logging_config import log_event
 from src.backend.prompt_security import DETECTOR_VERSION, assess_prompt_injection
 
-Analyzer = Callable[[str, int, str], Mapping[str, Any]]
+# Updated signature to accept operational_metadata dynamically
+Analyzer = Callable[..., Mapping[str, Any]]
 ProgressCallback = Callable[[int, int], None]
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ def validate_record(
     record_index: int,
     seen_feedback_ids: set[str],
 ) -> dict[str, Any]:
-    """Validate and normalize a raw object into the canonical v1 schema."""
+    """Validate and normalize a raw object into the canonical schema."""
     if not isinstance(raw_record, Mapping):
         raise RecordValidationError("record: must be a JSON object")
 
@@ -116,7 +117,6 @@ def validate_record(
 
 def _default_analyzer() -> Analyzer:
     from src.ai.extractor import analyze_feedback
-
     return analyze_feedback
 
 
@@ -128,7 +128,13 @@ def _analyze_with_retries(
     last_error: Exception | None = None
     for _ in range(max_retries + 1):
         try:
-            result = analyzer(record["customer_id"], record["score"], record["comment"])
+            # Injecting operational_metadata into the AI call
+            result = analyzer(
+                record["customer_id"], 
+                record["score"], 
+                record["comment"],
+                record.get("operational_metadata") 
+            )
             if not isinstance(result, Mapping):
                 raise TypeError("The analyzer must return a mapping.")
             return result
@@ -155,11 +161,13 @@ def _to_enriched_record(
         metadata = {}
 
     return {
-        **{field: record[field] for field in CANONICAL_FEEDBACK_FIELDS},
+        **{field: record.get(field) for field in CANONICAL_FEEDBACK_FIELDS},
         "nps_category": classify_nps(record["score"]),
         "predicted_theme_id": prediction.theme_id,
         "predicted_sentiment": prediction.sentiment,
         "predicted_urgency": prediction.urgency,
+        "target_team": getattr(prediction, "target_team", "NONE"),
+        "recommended_action": getattr(prediction, "recommended_action", ""),
         "prediction_summary": prediction.summary,
         "prediction_evidence": prediction.evidence,
         "prediction_needs_review": bool(analysis.get("prediction_needs_review", False)),
@@ -215,59 +223,43 @@ def _build_data_quality_report(
 
     warnings = []
     if validation_errors:
-        warnings.append(
-            {
-                "code": "REJECTED_RECORDS",
-                "severity": "error",
-                "message": f"{len(validation_errors)} record(s) failed schema validation.",
-            }
-        )
+        warnings.append({
+            "code": "REJECTED_RECORDS",
+            "severity": "error",
+            "message": f"{len(validation_errors)} record(s) failed schema validation.",
+        })
     if enrichment_errors:
-        warnings.append(
-            {
-                "code": "ENRICHMENT_FAILURES",
-                "severity": "warning",
-                "message": f"{len(enrichment_errors)} valid record(s) could not be enriched.",
-            }
-        )
+        warnings.append({
+            "code": "ENRICHMENT_FAILURES",
+            "severity": "warning",
+            "message": f"{len(enrichment_errors)} valid record(s) could not be enriched.",
+        })
     if security_reviews:
-        warnings.append(
-            {
-                "code": "PROMPT_INJECTION_REVIEW",
-                "severity": "warning",
-                "message": (
-                    f"{len(security_reviews)} valid record(s) were preserved but not "
-                    "sent for enrichment because local security checks flagged them."
-                ),
-            }
-        )
+        warnings.append({
+            "code": "PROMPT_INJECTION_REVIEW",
+            "severity": "warning",
+            "message": (f"{len(security_reviews)} valid record(s) were preserved but not "
+                        "sent for enrichment because local security checks flagged them."),
+        })
     if review_required:
-        warnings.append(
-            {
-                "code": "PREDICTIONS_REQUIRE_REVIEW",
-                "severity": "warning",
-                "message": (
-                    f"{review_required} prediction(s) were excluded from analytical "
-                    "findings because their evidence could not be verified."
-                ),
-            }
-        )
+        warnings.append({
+            "code": "PREDICTIONS_REQUIRE_REVIEW",
+            "severity": "warning",
+            "message": (f"{review_required} prediction(s) were excluded from analytical "
+                        "findings because their evidence could not be verified."),
+        })
     if duplicate_comment_rows:
-        warnings.append(
-            {
-                "code": "DUPLICATE_COMMENTS",
-                "severity": "warning",
-                "message": f"{duplicate_comment_rows} row(s) repeat an existing comment.",
-            }
-        )
+        warnings.append({
+            "code": "DUPLICATE_COMMENTS",
+            "severity": "warning",
+            "message": f"{duplicate_comment_rows} row(s) repeat an existing comment.",
+        })
     if 0 < valid < 30:
-        warnings.append(
-            {
-                "code": "SMALL_SAMPLE",
-                "severity": "info",
-                "message": "Fewer than 30 valid records; subgroup findings are descriptive only.",
-            }
-        )
+        warnings.append({
+            "code": "SMALL_SAMPLE",
+            "severity": "info",
+            "message": "Fewer than 30 valid records; subgroup findings are descriptive only.",
+        })
 
     return {
         "schema_name": FEEDBACK_SCHEMA_NAME,
@@ -288,9 +280,7 @@ def _build_data_quality_report(
         "missing_field_counts": _count_missing_fields(raw_records),
         "unexpected_field_counts": dict(sorted(unexpected_fields.items())),
         "source_distribution": dict(Counter(record["source"] for record in normalized_records)),
-        "language_distribution": dict(
-            Counter(record["language"] for record in normalized_records)
-        ),
+        "language_distribution": dict(Counter(record["language"] for record in normalized_records)),
         "score_distribution": {
             str(score): sum(record["score"] == score for record in normalized_records)
             for score in range(11)
@@ -308,15 +298,22 @@ def _group_nps(records: Sequence[Mapping[str, Any]], field: str) -> list[dict[st
     for value, group in groups.items():
         metrics = calculate_summary_metrics(group)
         total = len(group)
-        output.append(
-            {
-                field: value,
-                "responses": total,
-                "nps_score": metrics["nps_score"],
-                "detractors": metrics["total_detractors"],
-                "detractor_rate_pct": round(metrics["total_detractors"] / total * 100, 2),
-            }
-        )
+        
+        ca_menace = 0
+        for r in group:
+            if classify_nps(r["score"]) == "detractor":
+                meta = r.get("operational_metadata", {})
+                if isinstance(meta, dict):
+                    ca_menace += meta.get("arr_euros", 0)
+
+        output.append({
+            field: value,
+            "responses": total,
+            "nps_score": metrics["nps_score"],
+            "detractors": metrics["total_detractors"],
+            "detractor_rate_pct": round(metrics["total_detractors"] / total * 100, 2),
+            "ca_menace_euros": ca_menace 
+        })
     return sorted(output, key=lambda item: (-item["responses"], str(item[field]).casefold()))
 
 
@@ -324,7 +321,6 @@ def _generate_evidence_insights(
     normalized_records: Sequence[Mapping[str, Any]],
     enriched_records: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Generate descriptive findings with denominators and record-level evidence."""
     trusted_records = [
         record for record in enriched_records if not record.get("prediction_needs_review")
     ]
@@ -346,21 +342,17 @@ def _generate_evidence_insights(
             for record in trusted_records
             if record["predicted_theme_id"] == top_theme["theme_id"]
         ]
-        findings.append(
-            {
-                "finding_id": "TOP_PREDICTED_THEME",
-                "title": "Most frequent predicted theme",
-                "statement": (
-                    f"{top_theme['theme_id']} appears in {top_theme['count']} of "
-                    f"{len(trusted_records)} review-ready predictions."
-                ),
-                "metric": "predicted_theme_share_pct",
-                "value": top_theme["share_pct"],
-                "denominator": len(trusted_records),
-                "record_ids": evidence_ids,
-                "caveats": ["Themes are model predictions and require validation."],
-            }
-        )
+        findings.append({
+            "finding_id": "TOP_PREDICTED_THEME",
+            "title": "Most frequent predicted theme",
+            "statement": (f"{top_theme['theme_id']} appears in {top_theme['count']} of "
+                          f"{len(trusted_records)} review-ready predictions."),
+            "metric": "predicted_theme_share_pct",
+            "value": top_theme["share_pct"],
+            "denominator": len(trusted_records),
+            "record_ids": evidence_ids,
+            "caveats": ["Themes are model predictions and require validation."],
+        })
 
     source_breakdown = _group_nps(normalized_records, "source")
     if source_breakdown:
@@ -372,24 +364,20 @@ def _generate_evidence_insights(
                 for record in normalized_records
                 if record["source"] == highest["source"] and classify_nps(record["score"]) == "detractor"
             ]
-            findings.append(
-                {
-                    "finding_id": "SOURCE_DETRACTOR_RATE",
-                    "title": "Highest observed detractor rate by source",
-                    "statement": (
-                        f"{highest['source']} has {highest['detractors']} detractors "
-                        f"among {highest['responses']} valid responses."
-                    ),
-                    "metric": "detractor_rate_pct",
-                    "value": highest["detractor_rate_pct"],
-                    "denominator": highest["responses"],
-                    "record_ids": record_ids,
-                    "caveats": [
-                        "Descriptive association only; source does not imply causation.",
-                        "Groups with fewer than five responses are excluded.",
-                    ],
-                }
-            )
+            findings.append({
+                "finding_id": "SOURCE_DETRACTOR_RATE",
+                "title": "Highest observed detractor rate by source",
+                "statement": (f"{highest['source']} has {highest['detractors']} detractors "
+                              f"among {highest['responses']} valid responses."),
+                "metric": "detractor_rate_pct",
+                "value": highest["detractor_rate_pct"],
+                "denominator": highest["responses"],
+                "record_ids": record_ids,
+                "caveats": [
+                    "Descriptive association only; source does not imply causation.",
+                    "Groups with fewer than five responses are excluded.",
+                ],
+            })
 
     return {
         "source_breakdown": source_breakdown,
@@ -458,18 +446,16 @@ def run_batch(
             )
             feedback_id = record["feedback_id"]
             normalized_records.append(
-                {field: record[field] for field in CANONICAL_FEEDBACK_FIELDS}
+                {field: record.get(field) for field in CANONICAL_FEEDBACK_FIELDS}
             )
         except Exception as exc:
-            errors.append(
-                {
-                    "record_index": index,
-                    "feedback_id": feedback_id,
-                    "stage": "validation",
-                    "status": "failed",
-                    "error_reason": str(exc),
-                }
-            )
+            errors.append({
+                "record_index": index,
+                "feedback_id": feedback_id,
+                "stage": "validation",
+                "status": "failed",
+                "error_reason": str(exc),
+            })
             log_event(
                 logger,
                 logging.DEBUG,
@@ -485,33 +471,31 @@ def run_batch(
         security_assessment = assess_prompt_injection(record["comment"])
         if not security_assessment.allowed:
             assessment_data = security_assessment.to_dict()
-            errors.append(
-                {
-                    "record_index": index,
-                    "feedback_id": feedback_id,
-                    "stage": "security",
-                    "status": "review_required",
-                    "error_reason": "Potential prompt injection detected by local rules.",
-                    "security_assessment": assessment_data,
-                }
-            )
-            security_review_queue.append(
-                {
-                    "feedback_id": record["feedback_id"],
-                    "customer_id": record["customer_id"],
-                    "score": record["score"],
-                    "comment": record["comment"],
-                    "predicted_theme_id": None,
-                    "predicted_sentiment": None,
-                    "predicted_urgency": None,
-                    "prediction_evidence": None,
-                    "review_reason": "Local prompt-injection indicators require review.",
-                    "review_type": "security",
-                    "security_assessment": assessment_data,
-                    "model_name": None,
-                    "prompt_version": None,
-                }
-            )
+            errors.append({
+                "record_index": index,
+                "feedback_id": feedback_id,
+                "stage": "security",
+                "status": "review_required",
+                "error_reason": "Potential prompt injection detected by local rules.",
+                "security_assessment": assessment_data,
+            })
+            security_review_queue.append({
+                "feedback_id": record["feedback_id"],
+                "customer_id": record["customer_id"],
+                "score": record["score"],
+                "comment": record["comment"],
+                "predicted_theme_id": None,
+                "predicted_sentiment": None,
+                "predicted_urgency": None,
+                "target_team": None,
+                "recommended_action": None,
+                "prediction_evidence": None,
+                "review_reason": "Local prompt-injection indicators require review.",
+                "review_type": "security",
+                "security_assessment": assessment_data,
+                "model_name": None,
+                "prompt_version": None,
+            })
             log_event(
                 logger,
                 logging.WARNING,
@@ -538,15 +522,13 @@ def run_batch(
                 )
             )
         except Exception as exc:
-            errors.append(
-                {
-                    "record_index": index,
-                    "feedback_id": feedback_id,
-                    "stage": "enrichment",
-                    "status": "failed",
-                    "error_reason": str(exc),
-                }
-            )
+            errors.append({
+                "record_index": index,
+                "feedback_id": feedback_id,
+                "stage": "enrichment",
+                "status": "failed",
+                "error_reason": str(exc),
+            })
             log_event(
                 logger,
                 logging.DEBUG,
@@ -575,15 +557,17 @@ def run_batch(
             "customer_id": record["customer_id"],
             "score": record["score"],
             "comment": record["comment"],
-            "predicted_theme_id": record["predicted_theme_id"],
-            "predicted_sentiment": record["predicted_sentiment"],
-            "predicted_urgency": record["predicted_urgency"],
-            "prediction_evidence": record["prediction_evidence"],
+            "predicted_theme_id": record.get("predicted_theme_id"),
+            "predicted_sentiment": record.get("predicted_sentiment"),
+            "predicted_urgency": record.get("predicted_urgency"),
+            "target_team": record.get("target_team"),
+            "recommended_action": record.get("recommended_action"),
+            "prediction_evidence": record.get("prediction_evidence"),
             "review_reason": "prediction evidence was not found verbatim in the model input",
             "review_type": "prediction",
             "security_assessment": None,
-            "model_name": record["model_name"],
-            "prompt_version": record["prompt_version"],
+            "model_name": record.get("model_name"),
+            "prompt_version": record.get("prompt_version"),
         }
         for record in enriched_records
         if record.get("prediction_needs_review")
@@ -594,6 +578,20 @@ def run_batch(
     output["data_quality"] = _build_data_quality_report(
         raw_records, normalized_records, enriched_records, errors
     )
+    
+    # Calculate Global Financial Risk
+    global_ca_menace = 0
+    for r in normalized_records:
+        if classify_nps(r["score"]) == "detractor":
+            meta = r.get("operational_metadata", {})
+            if isinstance(meta, dict):
+                global_ca_menace += meta.get("arr_euros", 0)
+
+    output["financial_risk"] = {
+        "global_ca_menace_euros": global_ca_menace,
+        "currency": "EUR"
+    }
+    
     flagged_record_count = output["data_quality"]["enrichment_skipped_security"]
     output["security_alert"] = {
         "detected": flagged_record_count > 0,
@@ -621,6 +619,8 @@ def run_batch(
             "predicted_theme_id",
             "predicted_sentiment",
             "predicted_urgency",
+            "target_team",         # New Field
+            "recommended_action",  # New Field
             "prediction_summary",
             "prediction_evidence",
             "prediction_needs_review",
@@ -635,6 +635,8 @@ def run_batch(
             "predicted_theme_id",
             "predicted_sentiment",
             "predicted_urgency",
+            "target_team",         # New Field
+            "recommended_action",  # New Field
             "prediction_evidence",
             "review_reason",
             "review_type",

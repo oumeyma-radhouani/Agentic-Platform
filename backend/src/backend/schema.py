@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 FEEDBACK_SCHEMA_NAME = "nova.feedback"
-FEEDBACK_SCHEMA_VERSION = "1.0.0"
-ENRICHMENT_SCHEMA_VERSION = "1.0.0"
+FEEDBACK_SCHEMA_VERSION = "1.1.0" # Bumped version for SI Data
+ENRICHMENT_SCHEMA_VERSION = "1.1.0"
 
 CANONICAL_FEEDBACK_FIELDS = (
     "feedback_id",
@@ -18,6 +17,7 @@ CANONICAL_FEEDBACK_FIELDS = (
     "score",
     "comment",
     "language",
+    "operational_metadata", # Added SI Data
 )
 
 ThemeId = Literal[
@@ -35,6 +35,22 @@ ThemeId = Literal[
 Sentiment = Literal["positive", "neutral", "negative", "mixed"]
 Urgency = Literal["low", "medium", "high", "critical"]
 
+# NEW: Agentic routing target for decision support
+TargetTeam = Literal[
+    "ENGINEERING", 
+    "SUPPORT_L1", 
+    "SUPPORT_L2", 
+    "ACCOUNT_MANAGEMENT", 
+    "PRODUCT", 
+    "SALES",
+    "NONE"
+]
+
+class OperationalMetadata(BaseModel):
+    """SI data injected for business context."""
+    segment: str = Field(min_length=1)
+    arr_euros: int = Field(ge=0)
+    account_manager: str = Field(min_length=1)
 
 class FeedbackRecord(BaseModel):
     """Canonical, source-owned feedback record used throughout the pipeline."""
@@ -47,6 +63,7 @@ class FeedbackRecord(BaseModel):
     score: int = Field(strict=True, ge=0, le=10)
     comment: str = Field(min_length=1)
     language: str = Field(min_length=2, max_length=20)
+    operational_metadata: Optional[OperationalMetadata] = None # Added
 
     @field_validator("score", mode="before")
     @classmethod
@@ -77,6 +94,10 @@ class FeedbackEnrichment(BaseModel):
     urgency: Urgency
     summary: str = Field(min_length=1, max_length=300)
     evidence: str = Field(min_length=1, max_length=300)
+    
+    # NEW: Decision-support features for the agentic platform
+    target_team: TargetTeam 
+    recommended_action: str = Field(min_length=1, max_length=500)
 
 
 def feedback_json_schema() -> dict[str, Any]:

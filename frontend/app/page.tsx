@@ -60,7 +60,6 @@ export default function Dashboard() {
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
       .then((data) => {
-        setModuleReadiness(data.modules || {});
         const modelReady = data.modules?.batch_enrichment?.ready;
         setBackendStatus(data.status === "online" ? (modelReady ? "Opérationnel" : "API seule") : "Hors ligne");
       })
@@ -125,7 +124,8 @@ export default function Dashboard() {
       const summaryOnly = {
         ...batchResults,
         normalized_records: [],
-        enriched_records: [],
+        // Keep up to 30 enriched records so the UI can display the AI Action Plans
+        enriched_records: (batchResults.enriched_records || []).slice(0, 30),
         processed_records: [],
         errors: (batchResults.errors || []).slice(0, 20),
         records_omitted_from_browser_cache: true,
@@ -149,7 +149,7 @@ export default function Dashboard() {
         data: {
           ...record.data,
           normalized_records: [],
-          enriched_records: [],
+          enriched_records: (record.data.enriched_records || []).slice(0, 30),
           processed_records: [],
           review_queue: (record.data.review_queue || []).slice(0, 20),
           errors: (record.data.errors || []).slice(0, 20),
@@ -321,6 +321,7 @@ export default function Dashboard() {
         dataset_manifest: record.data.dataset_manifest,
         data_quality: record.data.data_quality,
         summary_metrics: record.data.summary_metrics,
+        financial_risk: record.data.financial_risk,
         normalized_records: record.data.normalized_records,
         enriched_records: record.data.enriched_records,
         review_queue: record.data.review_queue,
@@ -330,8 +331,6 @@ export default function Dashboard() {
         errors: record.data.errors,
         run_info: record.data.run_info,
       }, null, 2);
-      mimeType = "application/json;charset=utf-8";
-      extension = "json";
     } else if (record.type === "audio") {
       content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
       content += `--- CONTENU DE L'ÉCHANGE ---\n`;
@@ -345,7 +344,7 @@ export default function Dashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `NOVA_Rapport_${record.type}_${Date.now()}.txt`;
+    link.download = `NOVA_Rapport_${record.type}_${Date.now()}.${record.type === 'batch' ? 'json' : 'txt'}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -464,7 +463,7 @@ export default function Dashboard() {
 
       {viewingRecord && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${viewingRecord.type === 'batch' ? 'bg-[#f37021]' : viewingRecord.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
@@ -512,10 +511,39 @@ export default function Dashboard() {
                     </div>
                     <div className="flex flex-col justify-center border-l border-[#2353a4]/20 pl-4">
                       <span className="font-extrabold text-rose-600 text-xs mb-1">CA MENACÉ (CHURN)</span>
-                      <span className="text-2xl font-black text-rose-600">{viewingRecord.data.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €</span>
+                      <span className="text-2xl font-black text-rose-600">{viewingRecord.data.financial_risk?.global_ca_menace_euros?.toLocaleString('fr-FR') || "0"} €</span>
                     </div>
                   </div>
                   
+                  {/* NEW AI ACTION PLANS SECTION */}
+                  {viewingRecord.data.enriched_records?.length > 0 && (
+                    <div className="mt-8">
+                      <p className="font-bold text-[#f37021] uppercase text-xs tracking-wide border-b border-[#f37021]/30 pb-2 mb-3 flex items-center gap-2">
+                        <Target size={16}/> Plans d'Action IA (Sélection Détracteurs)
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {viewingRecord.data.enriched_records
+                          .filter((r: any) => r.nps_category === "detractor" || r.score <= 6)
+                          .slice(0, 6)
+                          .map((record: any, idx: number) => (
+                          <div key={idx} className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="font-bold text-slate-800 text-xs truncate max-w-[150px]" title={record.customer_id}>ID: {record.customer_id}</span>
+                                <span className="text-[9px] font-bold px-2 py-1 bg-indigo-100 text-indigo-800 rounded uppercase tracking-wider">{record.target_team || "GÉNÉRAL"}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 mb-3 italic line-clamp-3">"{record.comment}"</p>
+                            </div>
+                            <div className="bg-white p-2.5 border border-slate-100 rounded text-xs shadow-sm">
+                              <span className="font-extrabold text-[#2353a4] flex items-center gap-1 mb-1"><Bot size={12}/> Recommandation : </span>
+                              <span className="text-slate-700 leading-relaxed font-medium">{record.recommended_action || "Aucune action suggérée."}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {viewingRecord.data.strategic_insights && (
                      <div className="mt-6">
                         <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Insights Macro & Recommandations</p>
@@ -591,7 +619,7 @@ export default function Dashboard() {
                 Fermer
               </button>
               <button onClick={() => handleDownload(viewingRecord)} className="px-4 py-2 text-sm font-bold text-white bg-[#2353a4] rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-md">
-                <Download size={16} /> Télécharger (.txt)
+                <Download size={16} /> Télécharger ({viewingRecord.type === 'batch' ? '.json' : '.txt'})
               </button>
             </div>
           </div>
@@ -717,7 +745,7 @@ export default function Dashboard() {
                           <div className="bg-rose-50/30 p-3 rounded-lg text-center border border-rose-100 shadow-sm">
                             <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">CA Menacé (Churn)</p>
                             <p className="text-xl font-extrabold text-rose-600 mt-1">
-                              {batchResults.strategic_insights?.bi_metrics?.revenue_at_risk_eur?.toLocaleString('fr-FR') || "0"} €
+                              {batchResults.financial_risk?.global_ca_menace_euros?.toLocaleString('fr-FR') || "0"} €
                             </p>
                           </div>
                           <div className="bg-amber-50/30 p-3 rounded-lg text-center border border-amber-100 shadow-sm">
@@ -776,7 +804,7 @@ export default function Dashboard() {
                             <Eye size={14} /> Aperçu détaillé
                           </button>
                           <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                            <Download size={14} /> Exporter (.txt)
+                            <Download size={14} /> Exporter (.json)
                           </button>
                         </div>
                       </div>
@@ -823,7 +851,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* ====== RETOUR DU DASHBOARD POWER BI ====== */}
             {activeTab === "DASHBOARDS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
