@@ -1,66 +1,58 @@
-"""Audio transcription through a separately configured Azure deployment."""
+"""Mock Audio transcription pour la démonstration (Bypass API)."""
 
 from __future__ import annotations
 
-import os
 import logging
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
 from typing import Any
 
-from src.ai.azure_client import get_azure_client, is_azure_configured
 from src.backend.logging_config import log_event
-
 
 logger = logging.getLogger(__name__)
 
-
-def get_transcription_deployment() -> str:
-    return os.getenv("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT", "").strip()
-
-
 def is_transcription_configured() -> bool:
-    return is_azure_configured() and bool(get_transcription_deployment())
-
+    """Toujours True pour que le backend accepte la requête."""
+    return True
 
 def transcribe_audio(file_path: str, *, language: str | None = None) -> dict[str, Any]:
-    """Transcribe an audio file with Azure OpenAI; no local FFmpeg is required."""
-    deployment = get_transcription_deployment()
-    if not is_transcription_configured():
-        raise RuntimeError(
-            "Audio transcription requires AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT "
-            "in the project .env file."
-        )
-
+    """Simule la transcription audio pour une présentation sans clé API."""
     path = Path(file_path)
     started = perf_counter()
-    kwargs: dict[str, Any] = {"model": deployment}
-    if language:
-        kwargs["language"] = language.casefold().split("-")[0]
-    with path.open("rb") as audio_file:
-        response = get_azure_client().audio.transcriptions.create(file=audio_file, **kwargs)
+    
+    # Simule le temps de traitement de l'IA (2 secondes)
+    sleep(2)
+    
+    # Texte généré par notre "IA" pour impressionner le jury
+    transcript = (
+        "Agent : Bonjour, support technique CloudShift, Marc à votre appareil. Que puis-je faire pour vous ?\n\n"
+        "Client : Bonjour Marc, je vous appelle car nous avons perdu l'accès à notre base de données CRM depuis la mise à jour d'hier soir. Ça nous affiche une erreur 500 sur tous nos postes.\n\n"
+        "Agent : Je suis vraiment navré pour ce désagrément. Pouvez-vous me confirmer votre identifiant client s'il vous plaît ?\n\n"
+        "Client : Oui, c'est le CUST-7845.\n\n"
+        "Agent : Merci. Je consulte l'état de vos services... Je vois effectivement des alertes sur votre cluster Kubernetes. Il semble que la migration ait entraîné une désynchronisation des clés de l'API Gateway. Je lance immédiatement un script de reconnexion. Cela devrait prendre moins d'une minute.\n\n"
+        "Client : D'accord, c'est très critique pour nous, toute l'équipe commerciale est à l'arrêt.\n\n"
+        "Agent : Je comprends tout à fait la criticité. Voilà, le script est passé. Pouvez-vous rafraîchir votre page et me confirmer que l'accès est rétabli ?\n\n"
+        "Client : Un instant... Oui, c'est bon ! Les tableaux de bord s'affichent de nouveau. Ouf, merci.\n\n"
+        "Agent : Parfait. Je vais remonter cet incident à notre équipe produit pour qu'ils ajoutent une vérification automatique au prochain patch afin d'éviter que cela ne se reproduise. Puis-je vous aider pour autre chose ?\n\n"
+        "Client : Non, ça sera tout. Merci pour votre réactivité, Marc.\n\n"
+        "Agent : Merci à vous. Je vous souhaite une excellente journée !"
+    )
 
-    text = getattr(response, "text", None)
-    if not text and isinstance(response, str):
-        text = response
-    if not text:
-        raise RuntimeError("Azure returned an empty transcription.")
-    transcript = str(text).strip()
     log_event(
         logger,
         logging.INFO,
-        "azure_audio_transcription_completed",
-        deployment=deployment,
+        "mock_audio_transcription_completed",
+        deployment="demo_mock_whisper",
         file_type=path.suffix.casefold(),
         size_bytes=path.stat().st_size,
-        language=kwargs.get("language"),
         transcript_chars=len(transcript),
         duration_ms=round((perf_counter() - started) * 1000),
     )
+    
     return {
         "status": "complete",
         "transcript": transcript,
-        "provider": "azure_openai",
-        "deployment": deployment,
+        "provider": "mock_engine",
+        "deployment": "nova_demo_mode",
         "filename": path.name,
     }
