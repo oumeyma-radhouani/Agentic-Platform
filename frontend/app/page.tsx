@@ -49,7 +49,7 @@ export default function Dashboard() {
   const [chatInput, setChatInput] = useState("");
   const [isChatSending, setIsChatSending] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "copilot", text: string }>>([
-    { sender: "copilot", text: "Bonjour. Je suis NOVA. Je suis prêt à analyser vos données et formuler des recommandations stratégiques." }
+    { sender: "copilot", text: "Système NOVA initialisé. En attente de données pour exécution du modèle." }
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -190,7 +190,7 @@ export default function Dashboard() {
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `J'ai terminé l'analyse sémantique des ${data.data.summary_metrics.total_processed} retours clients. L'analyse détaillée est prête.` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement terminé. Extraction sémantique appliquée sur ${data.data.summary_metrics.total_processed} enregistrements.` }]);
       
       } else if (activeTask === "audio") {
         const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", credentials: "include", body: formData });
@@ -199,7 +199,7 @@ export default function Dashboard() {
         
         setAudioResult(data.transcript);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data: data.transcript }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: "L'analyse de l'interaction vocale est terminée." }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: "Transcription et analyse des intentions terminées." }]);
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", credentials: "include", body: formData });
@@ -208,7 +208,7 @@ export default function Dashboard() {
         
         setRagResult(data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "rag", filename: file.name, date: currentDate, data: data }, ...prev]);
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document stratégique "${data.filename}" a été assimilé.` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `Base de données vectorielle mise à jour avec le document "${data.filename}". L'indexation (RAG) est active.` }]);
       }
     } catch (error: any) {
       alert(`Erreur: ${error.message}.`);
@@ -236,7 +236,7 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Erreur serveur");
       setChatMessages(prev => [...prev, { sender: "copilot", text: data.response }]);
     } catch (error) {
-      setChatMessages(prev => [...prev, { sender: "copilot", text: "Je rencontre des difficultés pour me connecter au réseau neuronal." }]);
+      setChatMessages(prev => [...prev, { sender: "copilot", text: "Erreur de connexion au modèle LLM. Veuillez vérifier l'état du backend." }]);
     }
     setIsChatSending(false);
   };
@@ -268,7 +268,7 @@ export default function Dashboard() {
   const taskConfig = {
     batch: { accept: ".json,.jsonl,.csv", icon: <Users size={14} />, label: "Exports CRM (Retours Clients)" },
     audio: { accept: ".wav,.mp3", icon: <Phone size={14} />, label: "Enregistrements d'appels" },
-    rag: { accept: ".pdf,.txt,.docx", icon: <Target size={14} />, label: "Documents Stratégiques" }
+    rag: { accept: ".pdf,.txt,.docx", icon: <Target size={14} />, label: "Documentation Technique" }
   };
 
   const activeRecord = getActiveRecord();
@@ -298,7 +298,7 @@ export default function Dashboard() {
               </div>
             </div>
             <h1 className="text-2xl font-bold">Bienvenue</h1>
-            <p className="text-sm text-white/65 mt-2">Connectez-vous pour accéder à vos analyses et documents.</p>
+            <p className="text-sm text-white/65 mt-2">Connectez-vous pour accéder à l'espace de travail.</p>
           </div>
 
           <form onSubmit={handleLogin} className="px-8 py-8 space-y-5">
@@ -368,7 +368,7 @@ export default function Dashboard() {
                   {viewingRecord.type === 'rag' && <Database size={14} />}
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Aperçu Détaillé du Rapport</h3>
+                  <h3 className="font-bold text-slate-800 text-sm">Aperçu Détaillé du Fichier</h3>
                   <p className="text-[10px] text-slate-500 font-medium">Source : {viewingRecord.filename} • {viewingRecord.date}</p>
                 </div>
               </div>
@@ -380,10 +380,10 @@ export default function Dashboard() {
             <div className="p-6 overflow-y-auto bg-white flex-1 text-sm text-slate-700">
               {viewingRecord.type === 'batch' && (
                 <div className="space-y-4">
-                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Données Quantitatives Exactes</p>
+                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Métriques d'Ingestion</p>
                   <ul className="space-y-3">
                     <li className="flex justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <span className="font-semibold text-slate-600">Total retours analysés</span>
+                      <span className="font-semibold text-slate-600">Volume de requêtes traitées</span>
                       <span className="font-bold">{viewingRecord.data.summary_metrics.total_processed}</span>
                     </li>
                     <li className="flex justify-between bg-emerald-50 p-3 rounded-lg border border-emerald-100">
@@ -406,14 +406,14 @@ export default function Dashboard() {
                       <span className="text-3xl font-black text-[#2353a4]">{viewingRecord.data.summary_metrics.nps_score}</span>
                     </div>
                     <div className="flex flex-col justify-center border-l border-[#2353a4]/20 pl-4">
-                      <span className="font-extrabold text-rose-600 text-xs mb-1">CA MENACÉ (CHURN)</span>
+                      <span className="font-extrabold text-rose-600 text-xs mb-1">REVENU À RISQUE (ARR)</span>
                       <span className="text-2xl font-black text-rose-600">{viewingRecord.data.financial_risk?.global_ca_menace_euros?.toLocaleString('fr-FR') || "0"} €</span>
                     </div>
                   </div>
                   
                   {viewingRecord.data.strategic_insights && (
                      <div className="mt-6">
-                        <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Insights Macro & Recommandations</p>
+                        <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Plans d'Action Prescriptifs</p>
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
                             <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed text-slate-700">
                                 {viewingRecord.data.strategic_insights.recommendations.map((reco: string, i: number) => (
@@ -427,15 +427,15 @@ export default function Dashboard() {
               )}
               {viewingRecord.type === 'audio' && (
                 <div className="space-y-4">
-                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Retranscription intégrale</p>
+                  <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2">Analyse Sémantique du Script</p>
                   <p className="leading-relaxed whitespace-pre-wrap font-medium">{viewingRecord.data}</p>
                 </div>
               )}
               {viewingRecord.type === 'rag' && (
                 <div className="flex flex-col items-center justify-center py-8 text-emerald-600">
                   <Database size={48} className="mb-4 opacity-50" />
-                  <p className="font-bold text-lg">Document vectorisé avec succès</p>
-                  <p className="text-slate-500 text-sm mt-2 text-center max-w-md">L'ensemble du document a été découpé et inséré dans la mémoire sémantique. L'Assistant Stratégique y a désormais pleinement accès.</p>
+                  <p className="font-bold text-lg">Vecteurs générés avec succès</p>
+                  <p className="text-slate-500 text-sm mt-2 text-center max-w-md">L'ensemble du document a été découpé et inséré dans la base d'indexation vectorielle de l'espace de travail.</p>
                 </div>
               )}
             </div>
@@ -491,15 +491,15 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2 text-slate-800">
                 <ArrowLeft size={18} />
-                <h1 className="text-xl font-semibold">Centre d'Analyse</h1>
+                <h1 className="text-xl font-semibold">Espace de Travail</h1>
               </div>
             </div>
             <div className="space-y-2 mb-6">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Modules d'Intelligence</p>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Moteurs de Traitement</p>
               <div className="grid grid-cols-1 gap-2">
-                <button onClick={() => setActiveTask("batch")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "batch" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><MessageSquare size={16}/> Voix du Client (Sentiments)</button>
-                <button onClick={() => setActiveTask("audio")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "audio" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><Mic size={16}/> Intelligence Conversationnelle</button>
-                <button onClick={() => setActiveTask("rag")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "rag" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><Database size={16}/> Apprentissage Documentaire</button>
+                <button onClick={() => setActiveTask("batch")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "batch" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><MessageSquare size={16}/> Analyse Sémantique (CX)</button>
+                <button onClick={() => setActiveTask("audio")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "audio" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><Mic size={16}/> Analyse des Interactions</button>
+                <button onClick={() => setActiveTask("rag")} className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${activeTask === "rag" ? "bg-[#2353a4] text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}><Database size={16}/> Indexation Documentaire (RAG)</button>
               </div>
             </div>
             <div className="border-t border-slate-100 pt-4">
@@ -509,7 +509,7 @@ export default function Dashboard() {
           </div>
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 overflow-hidden">
              <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Ingestion</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Import de Données</span>
                 <ChevronDown size={14} className="text-slate-400" />
              </div>
              <div className="p-4">
@@ -518,7 +518,7 @@ export default function Dashboard() {
                     <input type="file" accept={taskConfig[activeTask].accept} onChange={(e) => setFile(e.target.files?.[0] || null)} className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2353a4]/10 file:text-[#2353a4] cursor-pointer transition-colors" />
                   </div>
                   <button type="submit" disabled={!file || loading} className="w-full bg-[#f37021] hover:bg-[#d95d13] disabled:bg-slate-300 text-white text-sm font-bold py-2.5 rounded-lg transition-all shadow-md">
-                    {loading ? "Génération en cours..." : "Générer les Insights"}
+                    {loading ? "Traitement en cours..." : "Exécuter le Traitement"}
                   </button>
                 </form>
              </div>
@@ -529,13 +529,13 @@ export default function Dashboard() {
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
-              <Tab label="RAPPORT CLASSIQUE" active={activeTab === "RAPPORTS"} />
+              <Tab label="SYNTHÈSE EXÉCUTIVE" active={activeTab === "RAPPORTS"} />
             </button>
             <button onClick={() => setActiveTab("DASHBOARDS")} className="outline-none">
-              <Tab label="TABLEAUX DE BORD" active={activeTab === "DASHBOARDS"} />
+              <Tab label="EXPLORATION (BI)" active={activeTab === "DASHBOARDS"} />
             </button>
             <button onClick={() => setActiveTab("HISTORIQUE")} className="outline-none">
-              <Tab label="HISTORIQUE" active={activeTab === "HISTORIQUE"} />
+              <Tab label="REGISTRE D'AUDIT" active={activeTab === "HISTORIQUE"} />
             </button>
           </div>
 
@@ -543,12 +543,12 @@ export default function Dashboard() {
             
             {activeTab === "RAPPORTS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
-                <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">SYNTHÈSE STRATÉGIQUE</h3>
+                <h3 className="text-sm font-extrabold text-slate-800 mb-6 tracking-wide">APERÇU DES PERFORMANCES</h3>
                 
                 {loading && (
                   <div className="flex flex-col items-center justify-center flex-1 text-[#2353a4]">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2353a4] mb-4"></div>
-                    <p className="text-sm font-semibold">NOVA consolide les données et recherche des corrélations...</p>
+                    <p className="text-sm font-semibold">Traitement des données et extraction des entités en cours...</p>
                   </div>
                 )}
 
@@ -559,10 +559,10 @@ export default function Dashboard() {
                       <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <p className="text-sm font-bold text-[#2353a4] mb-1">Rapport de Synthèse : Voix du Client</p>
-                            <p className="text-xs text-slate-500 font-medium">Analyse sémantique sur {batchResults.summary_metrics.total_processed} retours qualitatifs.</p>
+                            <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse Sémantique (CX)</p>
+                            <p className="text-xs text-slate-500 font-medium">Validation effectuée sur {batchResults.summary_metrics.total_processed} requêtes extraites.</p>
                           </div>
-                          <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">Analyse Complétée</span>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded">Job Terminé</span>
                         </div>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-5 border-b border-slate-100">
@@ -571,7 +571,7 @@ export default function Dashboard() {
                             <p className="text-2xl font-extrabold text-[#2353a4]">{batchResults.summary_metrics.nps_score}</p>
                           </div>
                           <div className="bg-rose-50/30 p-3 rounded-lg text-center border border-rose-100 shadow-sm">
-                            <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">CA Menacé (Churn)</p>
+                            <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">Revenu à Risque (ARR)</p>
                             <p className="text-xl font-extrabold text-rose-600 mt-1">
                               {batchResults.financial_risk?.global_ca_menace_euros?.toLocaleString('fr-FR') || "0"} €
                             </p>
@@ -584,20 +584,20 @@ export default function Dashboard() {
                             <p className="text-[9px] text-rose-500 font-bold mt-1">NPS: {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Friction Produit</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Anomalie Majeure Détectée</p>
                             <p className="text-sm font-extrabold text-[#f37021] mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.top_product_issue}>
                               {batchResults.strategic_insights?.bi_metrics?.top_product_issue || "En attente"}
                             </p>
-                            <p className="text-[9px] text-slate-500 font-bold mt-1">Résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h</p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">SLA: {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h</p>
                           </div>
                         </div>
 
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
-                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommandations Stratégiques (IA) :</p>
+                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Plans d'Action Prescriptifs :</p>
                            <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
                               {batchResults.strategic_insights?.recommendations?.map((reco: string, i: number) => (
                                  <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
-                              )) || <li>Les recommandations ont été générées dans le fichier d'export.</li>}
+                              )) || <li>Les recommandations ont été générées dans le fichier d'export JSON.</li>}
                            </ul>
                         </div>
                         
@@ -618,8 +618,8 @@ export default function Dashboard() {
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-[#2353a4] flex items-center justify-center shrink-0 mt-1 shadow-md"><Mic size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse de l'Interaction Vocale</p>
-                      <p className="text-xs text-slate-500 mb-4 font-medium">Extraction du script et détection des intentions.</p>
+                      <p className="text-sm font-bold text-[#2353a4] mb-1">Analyse des Interactions</p>
+                      <p className="text-xs text-slate-500 mb-4 font-medium">Extraction sémantique du fichier source.</p>
                       <div className="bg-slate-50 border border-slate-100 p-4 rounded-lg text-slate-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 line-clamp-4">{audioResult}</div>
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
@@ -633,9 +633,9 @@ export default function Dashboard() {
                   <div className="flex gap-4">
                     <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-1 shadow-md"><Database size={18} className="text-white" /></div>
                     <div className="flex-1 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <p className="text-sm font-bold text-[#2353a4] mb-1">Assimilation Stratégique</p>
-                      <p className="text-xs text-slate-500 mb-4 font-medium">Le document a été converti en base de connaissances décisionnelle.</p>
-                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4"><Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> sont prêtes.</div>
+                      <p className="text-sm font-bold text-[#2353a4] mb-1">Indexation Documentaire (RAG)</p>
+                      <p className="text-xs text-slate-500 mb-4 font-medium">Conversion du corpus en espace vectoriel.</p>
+                      <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 p-3 rounded-lg text-sm mb-4"><Sparkles size={18} /> Les données de <strong>{ragResult.filename}</strong> ont été indexées.</div>
                       <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                         <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"><Eye size={14} /> Aperçu détaillé</button>
                         <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm"><Download size={14} /> Exporter (.txt)</button>
@@ -646,8 +646,8 @@ export default function Dashboard() {
                 
                 {!loading && !batchResults && !audioResult && !ragResult && (
                   <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
-                    <BrainCircuit size={48} className="mb-3 opacity-30" />
-                    <p className="text-sm font-medium">Connectez une source de données pour générer des recommandations.</p>
+                    <Database size={48} className="mb-3 opacity-30" />
+                    <p className="text-sm font-medium">Importer un jeu de données pour démarrer l'analyse.</p>
                   </div>
                 )}
               </div>
@@ -658,7 +658,7 @@ export default function Dashboard() {
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
                    <h3 className="text-sm font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
-                     <BarChart3 size={16} className="text-[#2353a4]"/> VISION MACRO & KPIS STRATÉGIQUES (POWER BI)
+                     <BarChart3 size={16} className="text-[#2353a4]"/> TABLEAUX DE BORD DÉCISIONNELS (POWER BI)
                    </h3>
                    <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded">Intégration Microsoft</span>
                 </div>
@@ -681,15 +681,15 @@ export default function Dashboard() {
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-sm font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
-                    <Clock size={16} className="text-[#2353a4]"/> ARCHIVES DES ANALYSES
+                    <Clock size={16} className="text-[#2353a4]"/> REGISTRE D'AUDIT
                   </h3>
-                  <span className="text-[10px] text-slate-500 font-semibold">{analysesHistory.length} rapport(s) disponible(s)</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">{analysesHistory.length} entrée(s) stockée(s)</span>
                 </div>
 
                 {analysesHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
                     <FileText size={48} className="mb-3 opacity-30" />
-                    <p className="text-sm font-medium">Aucune analyse n'a encore été effectuée durant cette session.</p>
+                    <p className="text-sm font-medium">Aucun registre d'analyse détecté pour cette session.</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4 overflow-y-auto">
@@ -704,15 +704,15 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="text-sm font-bold text-[#2353a4]">
-                                {record.type === 'batch' && 'Voix du Client (Analyse NPS)'}
-                                {record.type === 'audio' && 'Interaction Vocale'}
-                                {record.type === 'rag' && 'Assimilation Documentaire'}
+                                {record.type === 'batch' && 'Analyse Sémantique (CX)'}
+                                {record.type === 'audio' && 'Analyse des Interactions'}
+                                {record.type === 'rag' && 'Indexation Documentaire (RAG)'}
                               </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold flex items-center gap-1">
                                   <Clock size={10} /> {record.date}
                                 </span>
-                                <span className="text-[10px] text-slate-400 font-medium">Source: {record.filename}</span>
+                                <span className="text-[10px] text-slate-400 font-medium">Fichier: {record.filename}</span>
                               </div>
                             </div>
                           </div>
@@ -730,7 +730,7 @@ export default function Dashboard() {
                         <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 border border-slate-100 mt-2">
                           {record.type === 'batch' && record.data.summary_metrics && (
                             <div className="flex gap-6">
-                              <span><strong>Retours traités:</strong> {record.data.summary_metrics.total_processed}</span>
+                              <span><strong>Lignes extraites:</strong> {record.data.summary_metrics.total_processed}</span>
                               <span><strong>Score NPS:</strong> <span className="text-[#2353a4] font-bold">{record.data.summary_metrics.nps_score}</span></span>
                             </div>
                           )}
@@ -738,7 +738,7 @@ export default function Dashboard() {
                             <p className="line-clamp-1 italic">"{record.data}"</p>
                           )}
                           {record.type === 'rag' && (
-                            <p className="text-emerald-700 font-medium">Indexation réussie. Le document est prêt pour l'Assistant Stratégique.</p>
+                            <p className="text-emerald-700 font-medium">Indexation des vecteurs complétée avec succès.</p>
                           )}
                         </div>
                       </div>
@@ -763,7 +763,7 @@ export default function Dashboard() {
                <div className="w-10 h-10 bg-gradient-to-br from-[#2353a4] to-[#1a4082] rounded-full flex items-center justify-center mb-2 shadow-md">
                  <BrainCircuit size={20} className="text-white" />
                </div>
-               <h3 className="font-extrabold text-slate-800 text-sm">Assistant Stratégique</h3>
+               <h3 className="font-extrabold text-slate-800 text-sm">Copilote Analytique</h3>
             </div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
                {chatMessages.map((msg, idx) => (
@@ -780,7 +780,7 @@ export default function Dashboard() {
                <div ref={chatEndRef} />
             </div>
             <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
-              <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Demander une recommandation..." className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#2353a4]" />
+              <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Interroger le modèle..." className="flex-1 bg-slate-100 border border-slate-200 rounded-full px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-[#2353a4]" />
               <button type="submit" disabled={isChatSending || !chatInput.trim()} className="w-8 h-8 rounded-full bg-[#2353a4] disabled:bg-slate-300 flex items-center justify-center text-white cursor-pointer"><Send size={14} /></button>
             </form>
           </div>
