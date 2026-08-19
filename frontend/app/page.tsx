@@ -9,9 +9,6 @@ import {
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const POWER_BI_EMBED_URL = process.env.NEXT_PUBLIC_POWER_BI_EMBED_URL || "";
-
-type ModuleReadiness = Record<string, { ready: boolean; reason?: string | null; index_type?: string }>;
 
 type AnalysisRecord = {
   id: string;
@@ -35,8 +32,8 @@ export default function Dashboard() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"RAPPORTS" | "HISTORIQUE" | "DASHBOARDS">("RAPPORTS");
   
+  const [activeTab, setActiveTab] = useState<"RAPPORTS" | "HISTORIQUE" | "DASHBOARDS">("RAPPORTS");
   const [backendStatus, setBackendStatus] = useState("Connexion...");
   const [activeTask, setActiveTask] = useState<"batch" | "audio" | "rag">("batch");
   const [file, setFile] = useState<File | null>(null);
@@ -56,13 +53,11 @@ export default function Dashboard() {
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // AUTH & HEALTH CHECK
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/health`)
       .then((res) => res.json())
-      .then((data) => {
-        const modelReady = data.modules?.batch_enrichment?.ready;
-        setBackendStatus(data.status === "online" ? (modelReady ? "Opérationnel" : "API seule") : "Hors ligne");
-      })
+      .then((data) => setBackendStatus(data.status === "online" ? "Opérationnel" : "Hors ligne"))
       .catch(() => setBackendStatus("Déconnecté"));
 
     fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
@@ -80,35 +75,27 @@ export default function Dashboard() {
         }
       })
       .catch(() => {
-        setLoginError("Le service d'authentification est indisponible. Vérifiez MONGO_URI et le backend.");
+        setLoginError("Le service d'authentification est indisponible.");
         setAuthStatus("anonymous");
       });
   }, []);
 
+  // LOAD CACHE ON LOGIN
   useEffect(() => {
     if (!currentUser) return;
     const cachePrefix = `nova_${currentUser.id}`;
-    setBatchResults(null);
-    setAudioResult(null);
-    setRagResult(null);
-    setAnalysesHistory([]);
+    
     try {
       const savedHistory = localStorage.getItem(`${cachePrefix}_analysesHistory`);
       if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
-
       const savedBatch = localStorage.getItem(`${cachePrefix}_batchResultsSummary`);
       if (savedBatch) setBatchResults(JSON.parse(savedBatch));
-
       const savedAudio = localStorage.getItem(`${cachePrefix}_audioResult`);
-      if (savedAudio) {
-        const parsedAudio = JSON.parse(savedAudio);
-        setAudioResult(typeof parsedAudio === "string" ? { transcript: parsedAudio, provider: "legacy", deployment: "unknown" } : parsedAudio);
-      }
-
+      if (savedAudio) setAudioResult(JSON.parse(savedAudio));
       const savedRag = localStorage.getItem(`${cachePrefix}_ragResult`);
       if (savedRag) setRagResult(JSON.parse(savedRag));
-    } catch (error) {
-      console.error("Erreur lors de la lecture du cache:", error);
+    } catch (e) {
+      console.error("Erreur cache:", e);
     }
 
     fetch(`${API_BASE_URL}/api/chat/history`, { credentials: "include" })
@@ -116,22 +103,12 @@ export default function Dashboard() {
       .then((data) => {
         if (data.success && data.messages?.length > 0) setChatMessages(data.messages);
       })
-      .catch((error) => console.error("Impossible de charger l'historique", error));
+      .catch(() => {});
   }, [currentUser]);
 
+  // SAVE CACHE
   useEffect(() => {
-    if (batchResults && currentUser) {
-      const summaryOnly = {
-        ...batchResults,
-        normalized_records: [],
-        // Keep up to 30 enriched records so the UI can display the AI Action Plans
-        enriched_records: (batchResults.enriched_records || []).slice(0, 30),
-        processed_records: [],
-        errors: (batchResults.errors || []).slice(0, 20),
-        records_omitted_from_browser_cache: true,
-      };
-      localStorage.setItem(`nova_${currentUser.id}_batchResultsSummary`, JSON.stringify(summaryOnly));
-    }
+    if (batchResults && currentUser) localStorage.setItem(`nova_${currentUser.id}_batchResultsSummary`, JSON.stringify(batchResults));
   }, [batchResults, currentUser]);
 
   useEffect(() => {
@@ -143,21 +120,7 @@ export default function Dashboard() {
   }, [ragResult, currentUser]);
 
   useEffect(() => {
-    if (analysesHistory.length > 0 && currentUser) {
-      const compactHistory = analysesHistory.map((record) => record.type === "batch" ? {
-        ...record,
-        data: {
-          ...record.data,
-          normalized_records: [],
-          enriched_records: (record.data.enriched_records || []).slice(0, 30),
-          processed_records: [],
-          review_queue: (record.data.review_queue || []).slice(0, 20),
-          errors: (record.data.errors || []).slice(0, 20),
-          records_omitted_from_browser_cache: true,
-        }
-      } : record);
-      localStorage.setItem(`nova_${currentUser.id}_analysesHistory`, JSON.stringify(compactHistory));
-    }
+    if (analysesHistory.length > 0 && currentUser) localStorage.setItem(`nova_${currentUser.id}_analysesHistory`, JSON.stringify(analysesHistory));
   }, [analysesHistory, currentUser]);
 
   useEffect(() => {
@@ -175,9 +138,6 @@ export default function Dashboard() {
     setAudioResult(null);
     setRagResult(null);
     setAnalysesHistory([]);
-    setChatMessages([
-      { sender: "copilot", text: "Bonjour. Je suis NOVA. Je peux vous aider à comprendre la qualité, les métriques et les enrichissements de vos données." }
-    ]);
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -192,21 +152,12 @@ export default function Dashboard() {
         body: JSON.stringify({ username: loginUsername, password: loginPassword }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = response.status === 401
-          ? "Nom d'utilisateur ou mot de passe incorrect."
-          : response.status === 429
-            ? "Trop de tentatives. Réessayez dans 15 minutes."
-            : response.status === 503
-              ? "Le service d'authentification est indisponible. Vérifiez MONGO_URI et le backend."
-              : data.detail || "Connexion impossible.";
-        throw new Error(message);
-      }
+      if (!response.ok) throw new Error(data.detail || "Connexion impossible.");
       setCurrentUser(data.user);
       setAuthStatus("authenticated");
       setLoginPassword("");
-    } catch (error) {
-      setLoginError(error instanceof Error ? error.message : "Connexion impossible.");
+    } catch (error: any) {
+      setLoginError(error.message);
     } finally {
       setLoginLoading(false);
     }
@@ -214,15 +165,9 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetch(`${API_BASE_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
     } finally {
       resetAuthenticatedState();
-      setLoginUsername("");
-      setLoginPassword("");
-      setLoginError("");
     }
   };
 
@@ -240,26 +185,16 @@ export default function Dashboard() {
 
       if (activeTask === "batch") {
         const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({}));
-          throw new Error(error.detail || "Erreur serveur");
-        }
+        if (!res.ok) throw new Error("Erreur serveur");
         const data = await res.json();
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
-        const flaggedCount = data.data.security_alert?.flagged_record_count || 0;
-        const securityNotice = flaggedCount > 0
-          ? ` Avertissement : ${flaggedCount} retour(s) ont été signalés par le contrôle anti-injection et placés dans la file de revue.`
-          : "";
-        setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement ${data.data.run_info.status} : ${data.data.data_quality.total_valid} lignes valides, ${data.data.data_quality.enrichment_succeeded} enrichies et ${data.data.data_quality.total_review_required ?? data.data.data_quality.predictions_review_required} à revoir.${securityNotice}` }]);
+        setChatMessages(prev => [...prev, { sender: "copilot", text: `J'ai terminé l'analyse sémantique des ${data.data.summary_metrics.total_processed} retours clients. L'analyse détaillée est prête.` }]);
       
       } else if (activeTask === "audio") {
         const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({}));
-          throw new Error(error.detail || "Erreur serveur");
-        }
+        if (!res.ok) throw new Error("Erreur serveur");
         const data = await res.json();
         
         setAudioResult(data.transcript);
@@ -268,10 +203,7 @@ export default function Dashboard() {
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({}));
-          throw new Error(error.detail || "Erreur serveur");
-        }
+        if (!res.ok) throw new Error("Erreur serveur");
         const data = await res.json();
         
         setRagResult(data);
@@ -279,7 +211,6 @@ export default function Dashboard() {
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Le document stratégique "${data.filename}" a été assimilé.` }]);
       }
     } catch (error: any) {
-      console.error(error);
       alert(`Erreur: ${error.message}.`);
     }
     setLoading(false);
@@ -302,11 +233,7 @@ export default function Dashboard() {
         body: JSON.stringify({ message: userText })
       });
       const data = await res.json();
-      if (res.status === 401) {
-        resetAuthenticatedState();
-        throw new Error("Session expirée");
-      }
-      if (!res.ok) throw new Error(data.detail || "Erreur serveur");
+      if (!res.ok) throw new Error("Erreur serveur");
       setChatMessages(prev => [...prev, { sender: "copilot", text: data.response }]);
     } catch (error) {
       setChatMessages(prev => [...prev, { sender: "copilot", text: "Je rencontre des difficultés pour me connecter au réseau neuronal." }]);
@@ -317,29 +244,10 @@ export default function Dashboard() {
   const handleDownload = (record: AnalysisRecord) => {
     let content = "";
     if (record.type === "batch") {
-      content = JSON.stringify({
-        dataset_manifest: record.data.dataset_manifest,
-        data_quality: record.data.data_quality,
-        summary_metrics: record.data.summary_metrics,
-        financial_risk: record.data.financial_risk,
-        normalized_records: record.data.normalized_records,
-        enriched_records: record.data.enriched_records,
-        review_queue: record.data.review_queue,
-        security_alert: record.data.security_alert,
-        rejected_records: record.data.rejected_records,
-        evidence_insights: record.data.evidence_insights,
-        errors: record.data.errors,
-        run_info: record.data.run_info,
-      }, null, 2);
-    } else if (record.type === "audio") {
-      content = `RAPPORT DE TRANSCRIPTION : INTELLIGENCE CONVERSATIONNELLE\nDate : ${record.date}\nFichier source : ${record.filename}\n\n`;
-      content += `--- CONTENU DE L'ÉCHANGE ---\n`;
-      content += `${record.data}\n\n`;
-      content += `[Généré par l'Assistant Stratégique NOVA]`;
+      content = JSON.stringify(record.data, null, 2);
     } else {
-      content = `RAPPORT D'ASSIMILATION : DOCUMENT STRATÉGIQUE\nDate : ${record.date}\nFichier source : ${record.filename}\n\nStatut : Vectorisé et indexé avec succès.\n[Généré par l'Assistant Stratégique NOVA]`;
+      content = record.data;
     }
-
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -368,10 +276,7 @@ export default function Dashboard() {
   if (authStatus === "checking") {
     return (
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
-        <div className="flex items-center gap-3 text-sm font-semibold text-white/80">
-          <Sparkles size={20} className="text-[#f37021] animate-pulse" />
-          Vérification de la session NOVA…
-        </div>
+        <Sparkles size={20} className="text-[#f37021] animate-pulse" />
       </div>
     );
   }
@@ -404,7 +309,6 @@ export default function Dashboard() {
                 <input
                   id="username"
                   name="username"
-                  autoComplete="username"
                   required
                   value={loginUsername}
                   onChange={(event) => setLoginUsername(event.target.value)}
@@ -421,7 +325,6 @@ export default function Dashboard() {
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete="current-password"
                   required
                   value={loginPassword}
                   onChange={(event) => setLoginPassword(event.target.value)}
@@ -430,22 +333,15 @@ export default function Dashboard() {
                 />
               </div>
             </div>
-
             {loginError && (
               <div role="alert" className="flex gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-relaxed">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <span>{loginError}</span>
               </div>
             )}
-
-            <button
-              type="submit"
-              disabled={loginLoading || !loginUsername.trim() || !loginPassword}
-              className="w-full rounded-xl bg-[#2353a4] hover:bg-[#1a4082] disabled:bg-slate-300 text-white py-3 text-sm font-bold transition-colors shadow-lg shadow-blue-900/15"
-            >
+            <button type="submit" disabled={loginLoading || !loginUsername.trim() || !loginPassword} className="w-full rounded-xl bg-[#2353a4] hover:bg-[#1a4082] disabled:bg-slate-300 text-white py-3 text-sm font-bold transition-colors shadow-lg shadow-blue-900/15">
               {loginLoading ? "Connexion…" : "Se connecter"}
             </button>
-            <p className="text-[11px] text-center text-slate-400">Les comptes sont créés par un administrateur NOVA.</p>
           </form>
         </main>
       </div>
@@ -463,7 +359,7 @@ export default function Dashboard() {
 
       {viewingRecord && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${viewingRecord.type === 'batch' ? 'bg-[#f37021]' : viewingRecord.type === 'audio' ? 'bg-[#2353a4]' : 'bg-emerald-500'}`}>
@@ -515,35 +411,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* NEW AI ACTION PLANS SECTION */}
-                  {viewingRecord.data.enriched_records?.length > 0 && (
-                    <div className="mt-8">
-                      <p className="font-bold text-[#f37021] uppercase text-xs tracking-wide border-b border-[#f37021]/30 pb-2 mb-3 flex items-center gap-2">
-                        <Target size={16}/> Plans d'Action IA (Sélection Détracteurs)
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {viewingRecord.data.enriched_records
-                          .filter((r: any) => r.nps_category === "detractor" || r.score <= 6)
-                          .slice(0, 6)
-                          .map((record: any, idx: number) => (
-                          <div key={idx} className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-between">
-                            <div>
-                              <div className="flex justify-between items-start mb-2">
-                                <span className="font-bold text-slate-800 text-xs truncate max-w-[150px]" title={record.customer_id}>ID: {record.customer_id}</span>
-                                <span className="text-[9px] font-bold px-2 py-1 bg-indigo-100 text-indigo-800 rounded uppercase tracking-wider">{record.target_team || "GÉNÉRAL"}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 mb-3 italic line-clamp-3">"{record.comment}"</p>
-                            </div>
-                            <div className="bg-white p-2.5 border border-slate-100 rounded text-xs shadow-sm">
-                              <span className="font-extrabold text-[#2353a4] flex items-center gap-1 mb-1"><Bot size={12}/> Recommandation : </span>
-                              <span className="text-slate-700 leading-relaxed font-medium">{record.recommended_action || "Aucune action suggérée."}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {viewingRecord.data.strategic_insights && (
                      <div className="mt-6">
                         <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Insights Macro & Recommandations</p>
@@ -555,47 +422,6 @@ export default function Dashboard() {
                             </ul>
                         </div>
                      </div>
-                  )}
-
-                  {viewingRecord.data.evidence_insights?.findings?.length > 0 && (
-                    <div className="mt-6">
-                      <p className="font-bold text-[#2353a4] uppercase text-xs tracking-wide border-b pb-2 mb-3">Constats traçables</p>
-                      <div className="space-y-3">
-                        {viewingRecord.data.evidence_insights.findings.map((finding: any) => (
-                          <div key={finding.finding_id} className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-                            <p className="font-bold text-slate-800">{finding.title}</p>
-                            <p className="mt-1 text-xs">{finding.statement}</p>
-                            <p className="mt-2 text-[10px] text-slate-500">Base : {finding.denominator} lignes • {finding.caveats.join(" • ")}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {viewingRecord.data.security_alert?.detected && (
-                    <div role="alert" className="mt-6 rounded-xl border border-rose-300 bg-rose-50 p-4 text-rose-900">
-                      <p className="font-extrabold text-xs uppercase tracking-wide flex items-center gap-2">
-                        <AlertTriangle size={16} /> Contenu potentiellement malveillant signalé
-                      </p>
-                      <p className="mt-2 text-xs leading-relaxed">
-                        {viewingRecord.data.security_alert.flagged_record_count} retour(s) ont été isolés du traitement ML et ajoutés à la file de revue. Ce signal nécessite une vérification humaine et ne prouve pas à lui seul une attaque.
-                      </p>
-                    </div>
-                  )}
-
-                  {viewingRecord.data.review_queue?.length > 0 && (
-                    <div className="mt-6">
-                      <p className="font-bold text-amber-800 uppercase text-xs tracking-wide border-b pb-2 mb-3">File de revue ({viewingRecord.data.review_queue.length})</p>
-                      <div className="space-y-3">
-                        {viewingRecord.data.review_queue.slice(0, 10).map((item: any) => (
-                          <div key={item.feedback_id} className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs">
-                            <p className="font-bold text-slate-800">{item.feedback_id} • {item.predicted_theme_id || "NON ANALYSÉ"}</p>
-                            <p className="mt-1 text-slate-600">{item.comment}</p>
-                            <p className="mt-2 text-amber-800">Motif : {item.review_reason}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </div>
               )}
@@ -619,13 +445,14 @@ export default function Dashboard() {
                 Fermer
               </button>
               <button onClick={() => handleDownload(viewingRecord)} className="px-4 py-2 text-sm font-bold text-white bg-[#2353a4] rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-md">
-                <Download size={16} /> Télécharger ({viewingRecord.type === 'batch' ? '.json' : '.txt'})
+                <Download size={16} /> Exporter
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* HEADER INITIAL (SOMBRE) */}
       <header className="h-14 bg-slate-900/90 backdrop-blur-md flex items-center justify-between px-4 shrink-0 text-white shadow-md z-20 border-b border-white/10">
         <div className="flex items-center gap-4">
           <Grid3X3 size={20} className="text-white/80 hover:text-white cursor-pointer" />
@@ -652,13 +479,13 @@ export default function Dashboard() {
           </div>
           <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 hover:bg-white/20 px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors" title="Se déconnecter">
             <LogOut size={14} />
-            <span className="hidden sm:inline">Déconnexion</span>
           </button>
         </div>
       </header>
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden z-10">
         
+        {/* ASIDE GAUCHE INITIAL (BLANC VERRE) */}
         <aside className="w-[320px] flex flex-col gap-4 overflow-y-auto shrink-0 pb-4">
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4">
             <div className="flex items-center justify-between mb-6">
@@ -698,6 +525,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
+        {/* CONTENU PRINCIPAL INITIAL */}
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
@@ -756,55 +584,29 @@ export default function Dashboard() {
                             <p className="text-[9px] text-rose-500 font-bold mt-1">NPS: {batchResults.strategic_insights?.bi_metrics?.worst_segment_nps || "0"}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg text-center border border-slate-100 shadow-sm">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Enrichissements ML</p>
-                            <p className="text-xl font-extrabold text-[#f37021] mt-1">{batchResults.data_quality?.predictions_ready || 0}</p>
-                            <p className="text-[9px] text-slate-500 font-bold mt-1">À revoir : {batchResults.data_quality?.total_review_required ?? batchResults.data_quality?.predictions_review_required ?? 0} • Échecs : {batchResults.data_quality?.enrichment_failed || 0}</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Friction Produit</p>
+                            <p className="text-sm font-extrabold text-[#f37021] mt-2 truncate" title={batchResults.strategic_insights?.bi_metrics?.top_product_issue}>
+                              {batchResults.strategic_insights?.bi_metrics?.top_product_issue || "En attente"}
+                            </p>
+                            <p className="text-[9px] text-slate-500 font-bold mt-1">Résolution : {batchResults.strategic_insights?.bi_metrics?.avg_resolution_time_detractors_h || "0"}h</p>
                           </div>
-                        </div>
-
-                        <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-100 text-sm text-slate-700 mb-4">
-                           <p className="font-bold text-amber-800 mb-2 flex items-center gap-2"><AlertTriangle size={14}/> Contrôles de qualité :</p>
-                           <ul className="space-y-2 text-xs leading-relaxed">
-                              {(batchResults.data_quality?.warnings || []).map((warning: any, i: number) => (
-                                 <li key={i}><strong>{warning.code} :</strong> {warning.message}</li>
-                              ))}
-                              {(batchResults.data_quality?.warnings || []).length === 0 && <li>Aucun problème détecté par les contrôles actuels.</li>}
-                           </ul>
                         </div>
 
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm text-slate-700 mb-4">
-                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Constats descriptifs et traçables :</p>
-                           <ul className="space-y-3 text-xs leading-relaxed">
-                              {(batchResults.evidence_insights?.findings || []).map((finding: any) => (
-                                 <li key={finding.finding_id}>
-                                   <strong>{finding.title} :</strong> {finding.statement}
-                                   <span className="block text-[10px] text-slate-500 mt-1">Base : {finding.denominator} lignes • {finding.caveats.join(" • ")}</span>
-                                 </li>
-                              ))}
-                              {(batchResults.evidence_insights?.findings || []).length === 0 && <li>Pas assez de prédictions valides pour produire un constat.</li>}
+                           <p className="font-bold text-[#2353a4] mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommandations Stratégiques (IA) :</p>
+                           <ul className="list-disc pl-5 space-y-2 text-xs leading-relaxed">
+                              {batchResults.strategic_insights?.recommendations?.map((reco: string, i: number) => (
+                                 <li key={i}><strong>Action {i+1} :</strong> {reco}</li>
+                              )) || <li>Les recommandations ont été générées dans le fichier d'export.</li>}
                            </ul>
                         </div>
-
-                        {batchResults.security_alert?.detected && (
-                          <div role="alert" className="bg-rose-50 p-4 rounded-lg border-2 border-rose-300 text-sm text-rose-900 mb-4 shadow-sm">
-                            <p className="font-extrabold mb-2 flex items-center gap-2">
-                              <AlertTriangle size={18} /> Avertissement de sécurité — contenu signalé
-                            </p>
-                            <p className="text-xs leading-relaxed">
-                              {batchResults.security_alert.flagged_record_count} retour(s) présentent des indicateurs possibles d'injection de prompt. Ils ont été conservés dans les données source, exclus de l'enrichissement ML et ajoutés à la file de revue pour vérification humaine.
-                            </p>
-                            <p className="text-[10px] mt-2 text-rose-700 font-semibold">
-                              Un signalement n'est pas une preuve d'attaque : vérifiez les éléments concernés dans l'aperçu détaillé.
-                            </p>
-                          </div>
-                        )}
                         
                         <div className="flex gap-3 justify-end border-t border-slate-100 pt-4">
                           <button onClick={() => setViewingRecord(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
                             <Eye size={14} /> Aperçu détaillé
                           </button>
                           <button onClick={() => handleDownload(activeRecord)} className="flex items-center gap-2 px-3 py-2 bg-[#2353a4] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm">
-                            <Download size={14} /> Exporter (.json)
+                            <Download size={14} /> Exporter JSON
                           </button>
                         </div>
                       </div>
@@ -851,6 +653,7 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* ONGLET DASHBOARD POWER BI (Intégré) */}
             {activeTab === "DASHBOARDS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
@@ -862,13 +665,13 @@ export default function Dashboard() {
                 
                 <div className="flex-1 w-full bg-slate-100 rounded-xl border border-slate-200 overflow-hidden relative shadow-inner">
                   <iframe 
-                    title="Dashboard_Strategique_CloudShift" 
+                    title="Dashboard" 
                     width="100%" 
                     height="100%" 
-                    src="https://app.powerbi.com/reportEmbed?reportId=VOTRE_ID_DE_RAPPORT&autoAuth=true&ctid=VOTRE_TENANT_ID" 
+                    src="https://app.powerbi.com/view?r=eyJrIjoiODA1N2VhYTQtNGNmYS00OGMwLWJhMzgtMDJiOTNkYmI1ZGYwIiwidCI6IjJkYjU1MmVlLTA0ZDMtNDBjNC1iNGE2LTg3NDc0ZjA2YTZkNSIsImMiOjl9" 
                     frameBorder="0" 
                     allowFullScreen={true}
-                    className="absolute inset-0"
+                    className="absolute inset-0 rounded-xl"
                   ></iframe>
                 </div>
               </div>
@@ -925,7 +728,7 @@ export default function Dashboard() {
                         </div>
                         
                         <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 border border-slate-100 mt-2">
-                          {record.type === 'batch' && (
+                          {record.type === 'batch' && record.data.summary_metrics && (
                             <div className="flex gap-6">
                               <span><strong>Retours traités:</strong> {record.data.summary_metrics.total_processed}</span>
                               <span><strong>Score NPS:</strong> <span className="text-[#2353a4] font-bold">{record.data.summary_metrics.nps_score}</span></span>
@@ -948,6 +751,7 @@ export default function Dashboard() {
           </div>
         </main>
 
+        {/* ASIDE DROIT INITIAL (AVEC LA BARRE NOIRE LATERALE) */}
         <aside className="w-[340px] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex shrink-0 overflow-hidden">
           <div className="w-12 bg-slate-900/95 flex flex-col items-center py-4 shrink-0 border-r border-slate-800">
             <div className="w-8 h-8 rounded-lg bg-[#f37021] flex items-center justify-center cursor-pointer relative shadow-md">
