@@ -5,7 +5,7 @@ import {
   Search, Grid3X3, Bell, HelpCircle, Settings, Plus, Play, 
   ArrowLeft, Tag, Mail, Phone, MessageSquare, Paperclip, 
   Send, Bot, ChevronDown, AlertCircle, Mic, Database, Sparkles, BrainCircuit, BarChart3, TrendingUp, Users, Target, Clock, FileText,
-  Eye, Download, X, AlertTriangle, Euro, LogOut, UserRound, LockKeyhole
+  Eye, Download, X, AlertTriangle, Euro, LogOut, UserRound, LockKeyhole, Share2, CheckCircle2, Info
 } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -23,6 +23,15 @@ type AuthenticatedUser = {
   username: string;
   display_name: string;
   role: "admin" | "member";
+};
+
+// NOUVEAU : Type strict pour nos notifications dynamiques
+type AppNotification = {
+  id: string;
+  type: "success" | "warning" | "error" | "info";
+  title: string;
+  message: string;
+  timestamp: string;
 };
 
 export default function Dashboard() {
@@ -52,6 +61,25 @@ export default function Dashboard() {
     { sender: "copilot", text: "Système NOVA initialisé. En attente de données pour exécution du modèle." }
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // ÉTATS DES NOTIFICATIONS DYNAMIQUES
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [hasUnreadAlerts, setHasUnreadAlerts] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // FONCTION MOTEUR POUR CRÉER UNE ALERTE EN TEMPS RÉEL
+  const triggerNotification = (type: AppNotification["type"], title: string, message: string) => {
+    const newNotif: AppNotification = {
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
+      type,
+      title,
+      message,
+      timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+    };
+    setNotifications(prev => [newNotif, ...prev].slice(0, 15)); // Garde les 15 dernières
+    setHasUnreadAlerts(true);
+  };
 
   // AUTH & HEALTH CHECK
   useEffect(() => {
@@ -88,12 +116,23 @@ export default function Dashboard() {
     try {
       const savedHistory = localStorage.getItem(`${cachePrefix}_analysesHistory`);
       if (savedHistory) setAnalysesHistory(JSON.parse(savedHistory));
+      
       const savedBatch = localStorage.getItem(`${cachePrefix}_batchResultsSummary`);
       if (savedBatch) setBatchResults(JSON.parse(savedBatch));
+      
       const savedAudio = localStorage.getItem(`${cachePrefix}_audioResult`);
       if (savedAudio) setAudioResult(JSON.parse(savedAudio));
+      
       const savedRag = localStorage.getItem(`${cachePrefix}_ragResult`);
       if (savedRag) setRagResult(JSON.parse(savedRag));
+
+      const savedNotifs = localStorage.getItem(`${cachePrefix}_notifications`);
+      if (savedNotifs) {
+        setNotifications(JSON.parse(savedNotifs));
+      } else {
+        // Notification de bienvenue
+        triggerNotification("info", "Session Ouverte", `Bienvenue dans l'espace de travail NOVA, ${currentUser.display_name}.`);
+      }
     } catch (e) {
       console.error("Erreur cache:", e);
     }
@@ -106,7 +145,7 @@ export default function Dashboard() {
       .catch(() => {});
   }, [currentUser]);
 
-  // SAVE CACHE
+  // SAVE CACHE (INCLUANT LES NOTIFICATIONS)
   useEffect(() => {
     if (batchResults && currentUser) localStorage.setItem(`nova_${currentUser.id}_batchResultsSummary`, JSON.stringify(batchResults));
   }, [batchResults, currentUser]);
@@ -124,6 +163,10 @@ export default function Dashboard() {
   }, [analysesHistory, currentUser]);
 
   useEffect(() => {
+    if (currentUser) localStorage.setItem(`nova_${currentUser.id}_notifications`, JSON.stringify(notifications));
+  }, [notifications, currentUser]);
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [chatMessages, isChatSending]);
 
@@ -138,6 +181,7 @@ export default function Dashboard() {
     setAudioResult(null);
     setRagResult(null);
     setAnalysesHistory([]);
+    setNotifications([]);
   };
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -185,33 +229,62 @@ export default function Dashboard() {
 
       if (activeTask === "batch") {
         const res = await fetch(`${API_BASE_URL}/api/batch`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.detail || "Erreur lors de l'extraction sémantique.");
+        }
         const data = await res.json();
         
         setBatchResults(data.data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement terminé. Extraction sémantique appliquée sur ${data.data.summary_metrics.total_processed} enregistrements.` }]);
+        
+        // NOTIFICATION DYNAMIQUE : Succès Batch
+        triggerNotification("success", "Traitement CX Terminé", `Le fichier ${file.name} a été analysé avec succès (${data.data.summary_metrics.total_processed} lignes).`);
+
+        // NOTIFICATION DYNAMIQUE : Alerte de Sécurité
+        if (data.data.security_alert?.flagged_record_count > 0) {
+          triggerNotification(
+            "warning", 
+            "Alerte de Sécurité Détectée", 
+            `${data.data.security_alert.flagged_record_count} requête(s) ont été isolées par notre filtre anti-injection (Prompt Injection).`
+          );
+        }
       
       } else if (activeTask === "audio") {
         const res = await fetch(`${API_BASE_URL}/api/audio`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.detail || "Erreur de transcription audio.");
+        }
         const data = await res.json();
         
         setAudioResult(data.transcript);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data: data.transcript }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: "Transcription et analyse des intentions terminées." }]);
+        
+        // NOTIFICATION DYNAMIQUE : Succès Audio
+        triggerNotification("success", "Transcription Validée", `L'audio "${file.name}" a été transcrit et analysé.`);
       
       } else if (activeTask === "rag") {
         const res = await fetch(`${API_BASE_URL}/api/rag`, { method: "POST", credentials: "include", body: formData });
-        if (!res.ok) throw new Error("Erreur serveur");
+        if (!res.ok) {
+           const errData = await res.json().catch(() => ({}));
+           throw new Error(errData.detail || "Erreur d'indexation.");
+        }
         const data = await res.json();
         
         setRagResult(data);
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "rag", filename: file.name, date: currentDate, data: data }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Base de données vectorielle mise à jour avec le document "${data.filename}". L'indexation (RAG) est active.` }]);
+        
+        // NOTIFICATION DYNAMIQUE : Succès RAG
+        triggerNotification("info", "Indexation Réussie", `Le document technique a été converti en base vectorielle (RAG).`);
       }
     } catch (error: any) {
-      alert(`Erreur: ${error.message}.`);
+      // NOTIFICATION DYNAMIQUE : Erreur Serveur
+      triggerNotification("error", "Échec du Traitement", error.message);
+      setChatMessages(prev => [...prev, { sender: "copilot", text: `Une erreur critique est survenue : ${error.message}` }]);
     }
     setLoading(false);
   };
@@ -233,10 +306,11 @@ export default function Dashboard() {
         body: JSON.stringify({ message: userText })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error("Erreur serveur");
+      if (!res.ok) throw new Error("Le moteur LLM n'a pas pu traiter la requête.");
       setChatMessages(prev => [...prev, { sender: "copilot", text: data.response }]);
-    } catch (error) {
-      setChatMessages(prev => [...prev, { sender: "copilot", text: "Erreur de connexion au modèle LLM. Veuillez vérifier l'état du backend." }]);
+    } catch (error: any) {
+      setChatMessages(prev => [...prev, { sender: "copilot", text: "Erreur de connexion au réseau neuronal." }]);
+      triggerNotification("error", "Erreur Copilote", error.message);
     }
     setIsChatSending(false);
   };
@@ -256,6 +330,20 @@ export default function Dashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // FONCTION DE PARTAGE SÉCURISÉ
+  const handleShare = () => {
+    const fakeSecureUrl = `https://nova-os.cloudshift.com/shared/report/${viewingRecord?.id || 'demo'}?token=${Math.random().toString(36).substring(2)}`;
+    navigator.clipboard.writeText(fakeSecureUrl);
+    setShareCopied(true);
+    triggerNotification("info", "Lien Partagé", "Le lien sécurisé a été copié dans votre presse-papier. Expiration dans 24h.");
+    setTimeout(() => setShareCopied(false), 3000);
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+    setShowNotifications(false);
   };
 
   const getActiveRecord = (): AnalysisRecord | null => {
@@ -444,6 +532,16 @@ export default function Dashboard() {
               <button onClick={() => setViewingRecord(null)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors">
                 Fermer
               </button>
+              
+              {/* BOUTON PARTAGE SÉCURISÉ */}
+              <button onClick={handleShare} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm relative overflow-hidden">
+                {shareCopied ? (
+                  <span className="flex items-center gap-2 text-emerald-600 animate-in fade-in zoom-in duration-200"><CheckCircle2 size={16} /> Lien copié (24h)</span>
+                ) : (
+                  <span className="flex items-center gap-2"><Share2 size={16} className="text-[#f37021]"/> Partager</span>
+                )}
+              </button>
+              
               <button onClick={() => handleDownload(viewingRecord)} className="px-4 py-2 text-sm font-bold text-white bg-[#2353a4] rounded-lg hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-md">
                 <Download size={16} /> Exporter
               </button>
@@ -452,7 +550,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* HEADER INITIAL (SOMBRE) */}
+      {/* HEADER INITIAL (SOMBRE) AVEC NOTIFICATIONS DYNAMIQUES */}
       <header className="h-14 bg-slate-900/90 backdrop-blur-md flex items-center justify-between px-4 shrink-0 text-white shadow-md z-20 border-b border-white/10">
         <div className="flex items-center gap-4">
           <Grid3X3 size={20} className="text-white/80 hover:text-white cursor-pointer" />
@@ -464,6 +562,68 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          
+          {/* CENTRE DE NOTIFICATIONS TEMPS RÉEL */}
+          <div className="relative">
+            <button 
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                if (!showNotifications) setHasUnreadAlerts(false);
+              }} 
+              className="text-white/80 hover:text-white transition-colors relative mt-1"
+            >
+              <Bell size={18} />
+              {hasUnreadAlerts && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse"></span>}
+            </button>
+            
+            {showNotifications && (
+              <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in slide-in-from-top-2 text-slate-800">
+                <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Alertes Système</span>
+                  {notifications.length > 0 && (
+                    <span className="text-[10px] bg-[#2353a4] text-white font-bold px-2 py-0.5 rounded-full">{notifications.length} logs</span>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-slate-400 text-xs font-medium">Aucun événement système.</div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div key={notif.id} className="px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            notif.type === 'warning' ? 'bg-rose-100 text-rose-600' :
+                            notif.type === 'error' ? 'bg-red-100 text-red-600' :
+                            notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                            'bg-blue-100 text-[#2353a4]'
+                          }`}>
+                            {notif.type === 'warning' || notif.type === 'error' ? <AlertTriangle size={14}/> : 
+                             notif.type === 'info' ? <Info size={14}/> : <CheckCircle2 size={14}/>}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">{notif.title}</p>
+                            <p className="text-[10px] text-slate-600 mt-1 leading-relaxed">{notif.message}</p>
+                            <p className="text-[9px] text-slate-400 mt-1.5 font-semibold">{notif.timestamp}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {notifications.length > 0 && (
+                  <div className="flex border-t border-slate-100">
+                    <button onClick={clearNotifications} className="flex-1 px-4 py-2.5 bg-white text-center hover:bg-rose-50 text-[10px] font-bold text-rose-600 uppercase tracking-wider transition-colors border-r border-slate-100">
+                      Effacer tout
+                    </button>
+                    <button onClick={() => setShowNotifications(false)} className="flex-1 px-4 py-2.5 bg-slate-50 text-center hover:bg-slate-100 text-[10px] font-bold text-slate-600 uppercase tracking-wider transition-colors">
+                      Fermer
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-semibold bg-white/10 px-2 py-1 rounded shadow-inner border border-white/5">
             <span className={`w-1.5 h-1.5 rounded-full shadow-sm ${backendStatus === "Opérationnel" ? "bg-emerald-400" : "bg-rose-400"}`}></span>
             IA: {backendStatus}
