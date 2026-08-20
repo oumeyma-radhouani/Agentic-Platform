@@ -25,7 +25,6 @@ type AuthenticatedUser = {
   role: "admin" | "member";
 };
 
-// NOUVEAU : Type strict pour nos notifications dynamiques
 type AppNotification = {
   id: string;
   type: "success" | "warning" | "error" | "info";
@@ -62,13 +61,12 @@ export default function Dashboard() {
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ÉTATS DES NOTIFICATIONS DYNAMIQUES
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [hasUnreadAlerts, setHasUnreadAlerts] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
-  // FONCTION MOTEUR POUR CRÉER UNE ALERTE EN TEMPS RÉEL
+  // FONCTION MOTEUR POUR CRÉER UNE ALERTE
   const triggerNotification = (type: AppNotification["type"], title: string, message: string) => {
     const newNotif: AppNotification = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
@@ -77,9 +75,27 @@ export default function Dashboard() {
       message,
       timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
     };
-    setNotifications(prev => [newNotif, ...prev].slice(0, 15)); // Garde les 15 dernières
+    setNotifications(prev => [newNotif, ...prev].slice(0, 15));
     setHasUnreadAlerts(true);
   };
+
+  // DÉTECTION D'UN LIEN PARTAGÉ (EFFET WOW POUR LA DEMO)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("shared_report")) {
+        setTimeout(() => {
+          triggerNotification(
+            "success", 
+            "Accès Sécurisé Validé", 
+            "L'authentification par lien temporaire a réussi. Ce rapport est en lecture seule."
+          );
+          // Nettoyer l'URL pour ne pas garder les paramètres apparents
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+      }
+    }
+  }, []);
 
   // AUTH & HEALTH CHECK
   useEffect(() => {
@@ -130,7 +146,6 @@ export default function Dashboard() {
       if (savedNotifs) {
         setNotifications(JSON.parse(savedNotifs));
       } else {
-        // Notification de bienvenue
         triggerNotification("info", "Session Ouverte", `Bienvenue dans l'espace de travail NOVA, ${currentUser.display_name}.`);
       }
     } catch (e) {
@@ -145,7 +160,7 @@ export default function Dashboard() {
       .catch(() => {});
   }, [currentUser]);
 
-  // SAVE CACHE (INCLUANT LES NOTIFICATIONS)
+  // SAVE CACHE
   useEffect(() => {
     if (batchResults && currentUser) localStorage.setItem(`nova_${currentUser.id}_batchResultsSummary`, JSON.stringify(batchResults));
   }, [batchResults, currentUser]);
@@ -239,16 +254,10 @@ export default function Dashboard() {
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "batch", filename: file.name, date: currentDate, data: data.data }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Traitement terminé. Extraction sémantique appliquée sur ${data.data.summary_metrics.total_processed} enregistrements.` }]);
         
-        // NOTIFICATION DYNAMIQUE : Succès Batch
         triggerNotification("success", "Traitement CX Terminé", `Le fichier ${file.name} a été analysé avec succès (${data.data.summary_metrics.total_processed} lignes).`);
 
-        // NOTIFICATION DYNAMIQUE : Alerte de Sécurité
         if (data.data.security_alert?.flagged_record_count > 0) {
-          triggerNotification(
-            "warning", 
-            "Alerte de Sécurité Détectée", 
-            `${data.data.security_alert.flagged_record_count} requête(s) ont été isolées par notre filtre anti-injection (Prompt Injection).`
-          );
+          triggerNotification("warning", "Alerte de Sécurité Détectée", `${data.data.security_alert.flagged_record_count} requête(s) ont été isolées par notre filtre anti-injection (Prompt Injection).`);
         }
       
       } else if (activeTask === "audio") {
@@ -263,7 +272,6 @@ export default function Dashboard() {
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "audio", filename: file.name, date: currentDate, data: data.transcript }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: "Transcription et analyse des intentions terminées." }]);
         
-        // NOTIFICATION DYNAMIQUE : Succès Audio
         triggerNotification("success", "Transcription Validée", `L'audio "${file.name}" a été transcrit et analysé.`);
       
       } else if (activeTask === "rag") {
@@ -278,11 +286,9 @@ export default function Dashboard() {
         setAnalysesHistory(prev => [{ id: Date.now().toString(), type: "rag", filename: file.name, date: currentDate, data: data }, ...prev]);
         setChatMessages(prev => [...prev, { sender: "copilot", text: `Base de données vectorielle mise à jour avec le document "${data.filename}". L'indexation (RAG) est active.` }]);
         
-        // NOTIFICATION DYNAMIQUE : Succès RAG
         triggerNotification("info", "Indexation Réussie", `Le document technique a été converti en base vectorielle (RAG).`);
       }
     } catch (error: any) {
-      // NOTIFICATION DYNAMIQUE : Erreur Serveur
       triggerNotification("error", "Échec du Traitement", error.message);
       setChatMessages(prev => [...prev, { sender: "copilot", text: `Une erreur critique est survenue : ${error.message}` }]);
     }
@@ -332,10 +338,11 @@ export default function Dashboard() {
     document.body.removeChild(link);
   };
 
-  // FONCTION DE PARTAGE SÉCURISÉ
+  // FONCTION DE PARTAGE SÉCURISÉ AVEC DOMAINE DYNAMIQUE
   const handleShare = () => {
-    const fakeSecureUrl = `https://nova-os.cloudshift.com/shared/report/${viewingRecord?.id || 'demo'}?token=${Math.random().toString(36).substring(2)}`;
-    navigator.clipboard.writeText(fakeSecureUrl);
+    const baseUrl = window.location.origin;
+    const secureUrl = `${baseUrl}?shared_report=${viewingRecord?.id || 'demo'}&token=${Math.random().toString(36).substring(2)}`;
+    navigator.clipboard.writeText(secureUrl);
     setShareCopied(true);
     triggerNotification("info", "Lien Partagé", "Le lien sécurisé a été copié dans votre presse-papier. Expiration dans 24h.");
     setTimeout(() => setShareCopied(false), 3000);
@@ -533,7 +540,6 @@ export default function Dashboard() {
                 Fermer
               </button>
               
-              {/* BOUTON PARTAGE SÉCURISÉ */}
               <button onClick={handleShare} className="px-4 py-2 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm relative overflow-hidden">
                 {shareCopied ? (
                   <span className="flex items-center gap-2 text-emerald-600 animate-in fade-in zoom-in duration-200"><CheckCircle2 size={16} /> Lien copié (24h)</span>
@@ -550,7 +556,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* HEADER INITIAL (SOMBRE) AVEC NOTIFICATIONS DYNAMIQUES */}
+      {/* HEADER AVEC NOTIFICATIONS DYNAMIQUES */}
       <header className="h-14 bg-slate-900/90 backdrop-blur-md flex items-center justify-between px-4 shrink-0 text-white shadow-md z-20 border-b border-white/10">
         <div className="flex items-center gap-4">
           <Grid3X3 size={20} className="text-white/80 hover:text-white cursor-pointer" />
@@ -563,7 +569,6 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-4">
           
-          {/* CENTRE DE NOTIFICATIONS TEMPS RÉEL */}
           <div className="relative">
             <button 
               onClick={() => {
@@ -645,7 +650,6 @@ export default function Dashboard() {
 
       <div className="flex-1 flex gap-4 p-4 overflow-hidden z-10">
         
-        {/* ASIDE GAUCHE INITIAL (BLANC VERRE) */}
         <aside className="w-[320px] flex flex-col gap-4 overflow-y-auto shrink-0 pb-4">
           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-4">
             <div className="flex items-center justify-between mb-6">
@@ -685,7 +689,6 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* CONTENU PRINCIPAL INITIAL */}
         <main className="flex-1 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex flex-col min-w-[400px] overflow-hidden">
           <div className="flex items-center px-4 pt-2 border-b border-slate-200 overflow-x-auto bg-white/50 gap-2 shrink-0">
             <button onClick={() => setActiveTab("RAPPORTS")} className="outline-none">
@@ -813,7 +816,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* ONGLET DASHBOARD POWER BI (Intégré) */}
             {activeTab === "DASHBOARDS" && (
               <div className="flex flex-col h-full animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-4">
@@ -911,7 +913,6 @@ export default function Dashboard() {
           </div>
         </main>
 
-        {/* ASIDE DROIT INITIAL (AVEC LA BARRE NOIRE LATERALE) */}
         <aside className="w-[340px] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 flex shrink-0 overflow-hidden">
           <div className="w-12 bg-slate-900/95 flex flex-col items-center py-4 shrink-0 border-r border-slate-800">
             <div className="w-8 h-8 rounded-lg bg-[#f37021] flex items-center justify-center cursor-pointer relative shadow-md">
